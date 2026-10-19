@@ -42,7 +42,7 @@ import { t } from '../i18n/core.js';
     [/resolve|connect|timeout|timed out|unreachable|receiving data|SSL|network/i, "noConnection", "checkConnection"],
     [/SHA|hash|verification|mismatch|changed the resource|truncated/i, "damaged", "restartFromZero"]
   ];
-  var PLAIN = /ShadowMount|from another source holds this name/;
+  var PLAIN = /^TorBox[:： ]|ShadowMount|from another source holds this name/;
   function explainError(error2, set = false) {
     const message = cause(error2);
     if (PLAIN.test(message)) return { title: message, action: "" };

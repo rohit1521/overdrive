@@ -7,6 +7,7 @@ import { Fragment, jsx, jsxs } from 'react/jsx-runtime';
 import { useEffect, useState } from 'react';
 import { describeSource, isDlc, requiredFirmware } from './sources.js';
 import { useSourceMetadata } from './useSourceMetadata.js';
+import { useTorBox } from '../state/torbox-session.js';
 import { useT } from '../i18n/index.js';
 import { sourceKind } from '../state/download-sources.js';
 import { isPs5Package } from '../state/firmware.js';
@@ -30,7 +31,7 @@ import { FocusScope, Text, View, useIsFocused } from '@ps5-react/core';
   var TIP_TEXT = TIP_WIDTH - 9 - 16;
   // The notes that apply to this source, most important first. The firmware comes from its label,
   // never from the console, which can be told a raised version.
-  function notesFor(release) {
+  function notesFor(release, torbox = false) {
     const notes = [];
     if (isDlc(release)) notes.push({ tone: "warn", icon: "package", key: "dlc" });
     if (isPatchOnly(release)) notes.push({ tone: "warn", icon: "fileMinus", key: "patch" });
@@ -40,8 +41,8 @@ import { FocusScope, Text, View, useIsFocused } from '@ps5-react/core';
       kind = sourceKind(release.parts?.[0]?.sources[0] ?? release);
     } catch {
     }
-    if (kind === "vikingfile") notes.push({ tone: "info", icon: "globe", key: "browserViking" });
-    else if (kind === "browser" || kind === "datanodes" || kind === "buzzheavier") notes.push({ tone: "info", icon: "globe", key: "browserOther" });
+    if (!torbox && kind === "vikingfile") notes.push({ tone: "info", icon: "globe", key: "browserViking" });
+    else if (!torbox && (kind === "browser" || kind === "datanodes" || kind === "buzzheavier")) notes.push({ tone: "info", icon: "globe", key: "browserOther" });
     const need = requiredFirmware(release);
     if (need !== null && !isDlc(release)) notes.push({ tone: "info", icon: "cpu", key: "firmware", values: { need: `${need}.xx` } });
     return notes;
@@ -75,6 +76,7 @@ import { FocusScope, Text, View, useIsFocused } from '@ps5-react/core';
   }
   function DownloadTipsDialog({ game, release, submit, changeSource, onClose }) {
     const metadata = useSourceMetadata([release]);
+    const torbox = useTorBox();
     const t2 = useT();
     const [open, setOpen] = (0, useState)(false);
     const { focusLater } = useNavActions();
@@ -85,7 +87,7 @@ import { FocusScope, Text, View, useIsFocused } from '@ps5-react/core';
       focusLater("tips:toggle");
     }, []);
     const { name, detail: detail2, size } = describeSource(release, metadata.get(release));
-    const notes = notesFor(release);
+    const notes = notesFor(release, torbox);
     const proceed = () => {
       onClose();
       submit();
@@ -112,7 +114,7 @@ import { FocusScope, Text, View, useIsFocused } from '@ps5-react/core';
             /* @__PURE__ */ (0, jsx)(Cover, { game, label: false, style: { width: 78, height: 78, borderRadius: 10, overflow: "hidden" } }),
             /* @__PURE__ */ (0, jsxs)(View, { style: { flex: 1, gap: 4 }, children: [
               /* @__PURE__ */ (0, jsx)(Text, { style: { fontFamily: "Inter-Regular", fontSize: 26, fontWeight: 600, color: colors.fg, numberOfLines: 1, ellipsizeMode: "tail" }, children: game.title }),
-              /* @__PURE__ */ (0, jsx)(Text, { style: { fontFamily: "Inter-Regular", fontSize: 21, color: colors.muted, numberOfLines: 1, ellipsizeMode: "tail" }, children: [detail2, name].filter(Boolean).join(" \xB7 ") })
+              /* @__PURE__ */ (0, jsx)(Text, { style: { fontFamily: "Inter-Regular", fontSize: 21, color: colors.muted, numberOfLines: 1, ellipsizeMode: "tail" }, children: [detail2, name, torbox && describeSource(release).group !== "direct" ? "TorBox" : null].filter(Boolean).join(" \xB7 ") })
             ] }),
             size ? /* @__PURE__ */ (0, jsx)(Text, { style: { fontFamily: "Inter-Regular", fontSize: 22, color: colors.fg }, children: size }) : null
           ] })

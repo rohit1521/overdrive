@@ -12,6 +12,8 @@ import { MoreOptions, ProblemNote } from './DownloadProblem.jsx';
 import { canDownload, spaceAdvice, spaceNeeded } from './releases.js';
 import { describeSource, isOverdriveCdn, preferredRelease } from './sources.js';
 import { useSourceMetadata } from './useSourceMetadata.js';
+import { useTorBox } from '../state/torbox-session.js';
+import { sourceKind } from '../state/download-sources.js';
 import { useDownload } from './useDownload.js';
 import { useFreeSpace } from './useFreeSpace.js';
 import { useShadowMount } from './useShadowMount.js';
@@ -61,6 +63,8 @@ import { DownloadFormats, Text, View, motion } from '@ps5-react/core';
       }));
     });
     const release = releases[selected];
+    const torboxEnabled = useTorBox();
+    const viaTorBox = torboxEnabled && release && !["direct", "manifest", "unavailable"].includes(sourceKind(release.parts?.[0]?.sources[0] ?? release));
     const source = release ? describeSource(release, metadata.get(release)) : null;
     const download = useDownload(game, release, roots[storage]);
     const { progress, restart, remove, deleteFromDisk, job: job2, error: error2 } = download;
@@ -241,7 +245,7 @@ import { DownloadFormats, Text, View, motion } from '@ps5-react/core';
             name: release.provider,
             detail: [source.format, source.size, source.availability, t2("sources.cdnFastest")].filter(Boolean).join(" \xB7 ")
           } : null,
-          text: t2("download.source", { source: release.provider }),
+          text: t2("download.source", { source: viaTorBox ? `${release.provider} / TorBox` : release.provider }),
           detail: [source.format, source.size, source.availability].filter(Boolean).join(" \xB7 ")
         }
       ) : null,

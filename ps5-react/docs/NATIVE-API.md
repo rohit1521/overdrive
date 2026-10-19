@@ -144,6 +144,7 @@ URLs and allowlisted lowercase response headers. Set `followRedirects: false`
 to inspect redirect metadata; cookies and authentication headers stay private.
 Bounded HTTP requests retain in-memory cookies within their redirect chain only.
 They are not persisted or shared with another request or a download.
+Native transfer failure logs omit URL query strings and fragments.
 HTTP requests accept a custom `Range` header for bounded probes; downloads own
 their ranges and reject it. Custom headers disable automatic redirects. Response
 headers include `etag` and `last-modified` for stable file identity checks.

@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased — private download links in logs
+
+- Transfer failure logs omit URL query strings and fragments so signed CDN tokens are not logged.
+
 ## Unreleased — HTTP redirect cookies
 
 - Bounded HTTP requests preserve cookies within a redirect chain, allowing host metadata pages

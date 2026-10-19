@@ -178,7 +178,8 @@ import { VIKING_PAGE_PREFIX, VIKING_PREFIX, describeVikingCapture, linkPageMetad
     };
     const save = ({ sync = true } = {}) => {
       fs.mkdir(directory, { recursive: true });
-      fs.writeFile(`${file}.tmp`, JSON.stringify({ version: 1, jobs }), { sync });
+      fs.writeFile(`${file}.tmp`, JSON.stringify({ version: 1, jobs }, (key, value) =>
+        key === "options" && value?.viaTorBox ? void 0 : value), { sync });
       fs.rename(`${file}.tmp`, file);
     };
     const change = () => {
@@ -352,6 +353,7 @@ import { VIKING_PAGE_PREFIX, VIKING_PREFIX, describeVikingCapture, linkPageMetad
         }
         job2.downloadDestination || (job2.downloadDestination = job2.artifact.destination);
         if (job2.routing) finishRouting(job2);
+        if (job2.options?.viaTorBox) delete job2.options;
         if (!job2.options) {
           if (job2.release.manifestUrl) {
             const response = await http.request(job2.release.manifestUrl, { maxBytes: 4 * 1024 * 1024, signal });
@@ -359,7 +361,10 @@ import { VIKING_PAGE_PREFIX, VIKING_PREFIX, describeVikingCapture, linkPageMetad
             job2.options = formats.manifest(await response.json());
           } else {
             if (!job2.release.url && !job2.release.browserUrl) throw new Error("This release has no download URL.");
+            if (job2.torbox && !sources.usesTorBox?.(job2.release)) throw new Error(t("torbox.keyRequired"));
             const resolved = job2.directURL || sourceKind(job2.release) !== "direct" ? await sources.resolve(job2.release, { signal, directURL: job2.directURL }) : { url: webURL(job2.release.url).url };
+            if (resolved.viaTorBox) job2.torbox = true;
+            if (resolved.filename) job2.fileName = resolved.filename;
             job2.options = {
               ...resolved,
               rejectHtml: true,
@@ -427,14 +432,15 @@ import { VIKING_PAGE_PREFIX, VIKING_PREFIX, describeVikingCapture, linkPageMetad
         console.log("[download-queue] transfer stopped:", error2.message);
         // The engine words every 401/403 as a possible browser check; from Archive.org it is a
         // restricted or removed item, so it reads as a dead link.
-        const refused = archiveRefusal(job2.parts ? job2.currentSource : job2.release, cause(error2.message));
+        const viaTorBox = Boolean(job2.options?.viaTorBox || job2.parts?.[job2.partIndex]?.options?.viaTorBox);
+        const refused = !viaTorBox && archiveRefusal(job2.parts ? job2.currentSource : job2.release, cause(error2.message));
         if (refused) error2 = new Error(`Source unavailable: HTTP ${refused}. Choose another source.`);
         // A link captured from the browser may wait in the queue past its life: refused before a byte
         // was written, it asks for the page's check again instead of reading as a dead source.
         const unwritten = !(job2.parts ? job2.parts[job2.partIndex]?.written : job2.written);
         const expired = !refused && job2.capturedLink && unwritten && /HTTP (?:401|403|404|410)/.test(cause(error2.message));
         if (expired) console.log("[download-queue] the captured link expired while queued; asking for the check again");
-        const browser = !refused && (expired || error2 instanceof BrowserRequired || /browser verification required/i.test(cause(error2.message)));
+        const browser = !viaTorBox && !refused && (expired || error2 instanceof BrowserRequired || /browser verification required/i.test(cause(error2.message)));
         const retried = job2.state !== "pausing" && !job2.cancelling && browser && active2.transferring && reresolve(job2);
         // A source that fails stays failed: the player picks another (the automatic switch to an
         // "equivalent" source was removed on 2026-10-16 at the user's request).
@@ -891,8 +897,11 @@ import { VIKING_PAGE_PREFIX, VIKING_PREFIX, describeVikingCapture, linkPageMetad
           change();
           const source2 = job2.release.parts[index].sources[part.sourceIndex || 0];
           job2.currentSource = source2;
+          if (part.options?.viaTorBox) delete part.options;
           if (!part.options) {
+            if (part.torbox && !sources.usesTorBox?.(source2)) throw new Error(t("torbox.keyRequired"));
             const resolved = await sources.resolve(source2, { signal, directURL: job2.directURL });
+            if (resolved.viaTorBox) part.torbox = true;
             part.options = { ...resolved, expectedBytes: resolved.expectedBytes || source2.sizeBytes || void 0, sha256: source2.sha256 || void 0 };
             delete job2.directURL;
             change();
@@ -1665,6 +1674,17 @@ import { VIKING_PAGE_PREFIX, VIKING_PREFIX, describeVikingCapture, linkPageMetad
         const job2 = find(id);
         if (job2.state !== "awaiting-browser") return;
         const source2 = job2.parts ? job2.currentSource : job2.release;
+        if (sources.usesTorBox?.(source2)) {
+          stopCapture(job2);
+          delete job2.options;
+          delete job2.directURL;
+          if (job2.parts) delete job2.parts[job2.partIndex].options;
+          job2.state = "queued";
+          job2.error = "";
+          change();
+          pump();
+          return;
+        }
         const viking = sourceKind(source2) === "vikingfile" || vikingLinkPage(source2);
         const anchor = viking ? "" : captureAnchor(job2.titleId);
         if (browserCapture && (viking || anchor)) {

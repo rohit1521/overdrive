@@ -311,6 +311,8 @@ def main():
             result = subprocess.run([str(binary), (endpoint if endpoint.startswith("https:") else origin+endpoint), str(path), str(connections), str(max_bytes),
                                      str(cancel), digest, method, str(file_limit), str(stop),
                                      "pieces" if pieces else "single", *(hashes or [])], capture_output=True, text=True, timeout=20, env=environment)
+            if "token=private-test-token" in endpoint:
+                assert "private-test-token" not in result.stderr, result.stderr
             if not result.stdout.strip():
                 raise AssertionError(result.stderr or f"client exited {result.returncode}")
             out = json.loads(result.stdout)
@@ -345,6 +347,8 @@ def main():
             assert not html_path.exists()
         missing = run("/not-found", directory / "missing", reject_html=True)
         assert missing["state"] == "failed" and "HTTP 404" in missing["error"], missing
+        private = run("/not-found?token=private-test-token", directory / "private", reject_html=True)
+        assert private["state"] == "failed" and "HTTP 404" in private["error"], private
         # A published file can be recovered after queue-state loss without contacting its provider.
         path = directory / "published-recovery"
         assert run("/file", path, recover=True)["state"] == "completed"

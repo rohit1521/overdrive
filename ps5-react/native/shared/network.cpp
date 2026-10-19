@@ -283,11 +283,12 @@ void log_failure(const Transfer& t, unsigned attempt) {
   };
   char* effective = nullptr;
   curl_easy_getinfo(t.curl, CURLINFO_EFFECTIVE_URL, &effective);
+  const std::string safe_url = effective ? std::string(effective).substr(0, std::string(effective).find_first_of("?#")) : "-";
   const std::string line = "download range " + std::to_string(t.piece) + " attempt " + std::to_string(attempt) +
     " failed: " + describe(t) + "; HTTP " + std::to_string(t.status) + " range=" + header("content-range") +
     " length=" + header("content-length") + " etag=" + header("etag") + " encoding=" + (t.encoding.empty() ? "-" : t.encoding) +
     " retry-after=" + header("retry-after") + " accepted=" + std::to_string(t.accepted) + "/" + std::to_string(t.length) +
-    " url=" + (effective ? effective : "-");
+    " url=" + safe_url;
   platform_log(line.c_str());
 }
 

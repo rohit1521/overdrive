@@ -6,6 +6,7 @@ import { Fragment, jsx, jsxs } from 'react/jsx-runtime';
 import { useState } from 'react';
 import { VersionFace } from './VersionSheet.jsx';
 import { useSourceMetadata } from './useSourceMetadata.js';
+import { useTorBox } from '../state/torbox-session.js';
 import { describeSource, isOverdriveCdn, preferredRelease, sourceSections } from './sources.js';
 import { useT } from '../i18n/index.js';
 import { CdnAura, CdnSpark } from '../ui/CdnAura.jsx';
@@ -54,6 +55,7 @@ import { Text, View, useIsFocused } from '@ps5-react/core';
   }
   function Section2({ group, items, selected, recommended, revealed, onPick, metadata }) {
     const t2 = useT();
+    const torbox = useTorBox();
     const { title, icon, note } = SECTION[group];
     return /* @__PURE__ */ (0, jsxs)(View, { style: { gap: 6 }, children: [
       /* @__PURE__ */ (0, jsxs)(View, { style: { marginBottom: 6, gap: 3, paddingHorizontal: 18 }, children: [
@@ -66,7 +68,7 @@ import { Text, View, useIsFocused } from '@ps5-react/core';
           RowFace,
           {
             icon,
-            name,
+            name: torbox && describeSource(release).group !== "direct" ? `${name} / TorBox` : name,
             detail: detail2,
             size,
             status,

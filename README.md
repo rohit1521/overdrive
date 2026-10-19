@@ -130,6 +130,36 @@ nothing to click.
 You can also use **any FTP client** to move the file onto the console's internal storage
 instead, again inside a `homebrew` folder: `/data/homebrew/Overdrive.exfat`.
 
+## Optional TorBox downloads
+
+Settings includes **TorBox API key**. Enter your own API key from your TorBox account settings
+(not a token copied from a CDN URL). The key is visible while editing, including in right-to-left
+locales. Press **R2 / Validate and save** to check it with TorBox's read-only account endpoint.
+The dialog shows validation progress, rejects repeated submissions, and stays open on errors.
+Cancel aborts the check without saving. A successful check saves the key and closes the dialog.
+
+The key is restored on later launches from `overdrive/torbox.json` in the app's writable data
+directory, separate from the installed image and saved download queue. Writes are atomic and the
+credential file is restricted to its owner (`0600`); it is **not encrypted**. Do not share this file
+or data-directory backups. Settings shows that the key is saved; select it to edit/revalidate, or
+choose **Remove saved TorBox key** to delete it and disable TorBox. Replacing an invalid key or a
+failed save leaves the previous key unchanged. Validation checks authentication, not host support
+or your plan's download limits. No validation download is created.
+
+When enabled, host-page sources resolve through TorBox's web-download API instead of opening the
+PS5 browser. Direct files and split manifests still use their normal path. TorBox may first need to
+cache the file; Overdrive stays at Resolving for up to about ten minutes of polling, after which
+you can resume later. Multipart archive volumes are submitted separately. Existing TorBox items
+with the exact same source URL are reused, and remote items are never deleted by Overdrive.
+Unsupported hosts, account/plan limits and ambiguous multi-file results fail explicitly rather than
+falling back to the browser. This sends the selected host link to TorBox and uses your account's
+limits. Support depends on your TorBox plan and the host; it is not guaranteed by the metadata check.
+
+Signed TorBox URLs are generated again on resume and omitted from the saved queue. Keep a valid
+key configured when resuming a TorBox transfer. Removing the key does not cancel an already active
+transfer. Do not share API keys or signed CDN links. API behavior is tested with mocked responses;
+an authenticated TorBox download and PS5 execution still require validation with your own account.
+
 ## Updates
 
 You only install Overdrive by hand once. When a new version comes out, the app tells you by
@@ -256,7 +286,7 @@ npm run dev          # the app in a window on your PC, rebuilt on every save und
 | `npm run dev` | Opens the app in the desktop preview and rebuilds it on every save (state resets on restart) |
 | `npm run preview` | Opens the desktop preview once, without watching |
 | `npm test` | The framework's checks; needed after changes under `ps5-react/`, not for `app/` only |
-| `npm run test:app` | Application formats, live metadata, cache and localization checks (Node.js 22.7+) |
+| `npm run test:app` | Application formats, metadata, TorBox API/queue and localization checks (Node.js 22.7+) |
 | `npm run build` | The PS5 app, then `Overdrive.exfat` and `update.zip` (see Building) |
 | `npm run build:app` | The PS5 app only, in `ps5-react/dist/PPSA99058` |
 
