@@ -2,6 +2,7 @@
 // reconstructed from the esbuild bundle in eboot.bin
 
 import { t } from '../i18n/core.js';
+import { sourceFormat } from './source-format.js';
 import { sourceKind } from '../state/download-sources.js';
 import { isPs5Package } from '../state/firmware.js';
 import { isPatchOnly } from '../state/release-sets.js';
@@ -55,9 +56,13 @@ import { formatBytes } from '../state/size.js';
   }
   var SPEED = { "archive.org": "sources.speed.archive", mediafire: "sources.speed.mediafire", "overdrive cdn": "sources.cdnFastest" };
   var isOverdriveCdn = (provider) => /^overdrive\s*cdn$/i.test(provider ?? "");
-  function describeSource(release) {
+  function describeSource(release, metadata = null) {
     const parts = release.parts?.length;
+    const format = metadata?.format ? `.${metadata.format.toUpperCase()}` : sourceFormat(release);
+    const availability = metadata ? t(`sources.check.${metadata.state}`) : null;
     const detail2 = [
+      format,
+      availability,
       edition(release),
       release.version ? `v${release.version.replace(/^v/i, "")}` : null,
       isPatchOnly(release) ? t("sources.kind.patch") : KIND[release.format] && t(KIND[release.format]),
@@ -67,8 +72,10 @@ import { formatBytes } from '../state/size.js';
     const speed = SPEED[release.provider.toLowerCase()];
     return {
       name: release.provider.replace(/^www\./, ""),
+      format,
+      availability,
       detail: speed ? [detail2, t(speed)].filter(Boolean).join(" \xB7 ") : detail2,
-      size: release.sizeBytes ? formatBytes(release.sizeBytes) : null,
+      size: metadata?.sizeLabel || (metadata?.sizeBytes ? formatBytes(metadata.sizeBytes) : release.sizeBytes ? formatBytes(release.sizeBytes) : null),
       group: release.unavailableReason ? "unavailable" : reach,
       reason: release.unavailableReason ?? null,
       status: release.unavailableReason ? null : compatibility(release)

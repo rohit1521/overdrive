@@ -6,6 +6,7 @@ import '../assets/Inter-Regular.ttf';
 import { Fragment, jsx, jsxs } from 'react/jsx-runtime';
 import { useEffect, useState } from 'react';
 import { describeSource, isDlc, requiredFirmware } from './sources.js';
+import { useSourceMetadata } from './useSourceMetadata.js';
 import { useT } from '../i18n/index.js';
 import { sourceKind } from '../state/download-sources.js';
 import { isPs5Package } from '../state/firmware.js';
@@ -73,6 +74,7 @@ import { FocusScope, Text, View, useIsFocused } from '@ps5-react/core';
     ] });
   }
   function DownloadTipsDialog({ game, release, submit, changeSource, onClose }) {
+    const metadata = useSourceMetadata([release]);
     const t2 = useT();
     const [open, setOpen] = (0, useState)(false);
     const { focusLater } = useNavActions();
@@ -82,7 +84,7 @@ import { FocusScope, Text, View, useIsFocused } from '@ps5-react/core';
     (0, useEffect)(() => {
       focusLater("tips:toggle");
     }, []);
-    const { name, detail: detail2, size } = describeSource(release);
+    const { name, detail: detail2, size } = describeSource(release, metadata.get(release));
     const notes = notesFor(release);
     const proceed = () => {
       onClose();

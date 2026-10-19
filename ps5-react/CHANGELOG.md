@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased — HTTP redirect cookies
+
+- Bounded HTTP requests preserve cookies within a redirect chain, allowing host metadata pages
+  that depend on a session cookie to load. Cookies stay native and are not persisted or shared
+  between requests or with downloads.
+
 ## Unreleased — home-screen backgrounds
 
 - The build copies `.dds` files from an app's `sce_sys/` as well as `.png`: the home screen shows

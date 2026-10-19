@@ -25,6 +25,7 @@
     "build:app": "bash packaging/build.sh --no-package",
     "preview": "cd ps5-react && CC=clang CXX=clang++ python3 tools/cli.py preview --app-dir ../app",
     "dev": "cd ps5-react && CC=clang CXX=clang++ python3 tools/cli.py preview --app-dir ../app --watch",
-    "test": "cd ps5-react && CC=clang CXX=clang++ npm test"
+    "test": "cd ps5-react && CC=clang CXX=clang++ npm test",
+    "test:app": "node --test app/game/*.test.mjs"
   }
 }

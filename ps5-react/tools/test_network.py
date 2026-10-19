@@ -118,6 +118,19 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.send_header("Content-Length", "0")
             self.end_headers()
             return
+        if path in ("/cookie-redirect", "/cookie-page"):
+            body = b'{"filename":"game.exfat"}'
+            redirect = path == "/cookie-redirect"
+            allowed = self.headers.get("Cookie") == "file=example"
+            self.send_response(302 if redirect else 200 if allowed else 404)
+            if redirect:
+                self.send_header("Location", "/cookie-page")
+                self.send_header("Set-Cookie", "file=example; Path=/")
+            self.send_header("Content-Length", "0" if redirect else str(len(body)))
+            self.end_headers()
+            if not head and not redirect:
+                self.wfile.write(body)
+            return
         if path in ("/html", "/html-no-type", "/html-fragmented"):
             body = b"<!DOCTYPE html><html>Verify</html>"
             self.send_response(200)
@@ -308,6 +321,10 @@ def main():
         assert json.loads(run("/json")["body"]) == {"value": 42}
         assert run("/not-found")["status"] == 404
         assert run("/json", method="HEAD")["body"] == ""
+        cookie = run("/cookie-redirect")
+        assert cookie["status"] == 200 and json.loads(cookie["body"])["filename"] == "game.exfat", cookie
+        assert "set-cookie" not in cookie["headers"], cookie
+        assert run("/cookie-page")["status"] == 404
         metadata = run("/redirect", method="HEAD")
         assert metadata["url"] == origin + "/file", metadata
         assert "content-length" in metadata["headers"]

@@ -5,9 +5,11 @@ import '../assets/Inter-Regular.ttf';
 import { Fragment, jsx, jsxs } from 'react/jsx-runtime';
 import { useState } from 'react';
 import { VersionFace } from './VersionSheet.jsx';
+import { useSourceMetadata } from './useSourceMetadata.js';
 import { describeSource, isOverdriveCdn, preferredRelease, sourceSections } from './sources.js';
 import { useT } from '../i18n/index.js';
 import { CdnAura, CdnSpark } from '../ui/CdnAura.jsx';
+import { Button2 } from '../ui/Button.jsx';
 import { FocusRing } from '../ui/FocusRing.jsx';
 import { Icon } from '../ui/Icon.jsx';
 import { SideSheet } from '../ui/SideSheet.jsx';
@@ -50,7 +52,7 @@ import { Text, View, useIsFocused } from '@ps5-react/core';
       /* @__PURE__ */ (0, jsx)(View, { style: { width: 27, alignItems: "flex-end" }, children: current ? /* @__PURE__ */ (0, jsx)(Icon, { name: "check", size: 18, color: colors.fg }) : null })
     ] });
   }
-  function Section2({ group, items, selected, recommended, revealed, onPick }) {
+  function Section2({ group, items, selected, recommended, revealed, onPick, metadata }) {
     const t2 = useT();
     const { title, icon, note } = SECTION[group];
     return /* @__PURE__ */ (0, jsxs)(View, { style: { gap: 6 }, children: [
@@ -59,7 +61,7 @@ import { Text, View, useIsFocused } from '@ps5-react/core';
         note ? /* @__PURE__ */ (0, jsx)(Text, { style: { width: 660, fontFamily: "Inter-Regular", fontSize: 21, color: "#8a8a94", numberOfLines: 2, ellipsizeMode: "tail", lineHeight: 30 }, children: t2(note) }) : null
       ] }),
       items.map(({ release, index }, row) => {
-        const { name, detail: detail2, size, status } = describeSource(release);
+        const { name, detail: detail2, size, status } = describeSource(release, metadata.get(release));
         return /* @__PURE__ */ (0, jsx)(View, { autoFocus: index === selected || revealed && row === 0, onPress: () => onPick(index), style: (_state) => [{ position: "relative", minHeight: 84, flexDirection: "row", alignItems: "center", gap: 18, borderRadius: 12, paddingHorizontal: 18, paddingVertical: 12 }, _state.focused ? { backgroundColor: "#212125" } : null], children: /* @__PURE__ */ (0, jsx)(
           RowFace,
           {
@@ -108,6 +110,7 @@ import { Text, View, useIsFocused } from '@ps5-react/core';
     ] });
   }
   function SourcePicker({ title, releases, selected, submit, editions = [], current, onEdition, onClose }) {
+    const metadata = useSourceMetadata(releases);
     const recommended = preferredRelease(releases);
     const sections = sourceSections(releases);
     const count = (group) => sections.find((section) => section.group === group)?.items.length ?? 0;
@@ -119,6 +122,7 @@ import { Text, View, useIsFocused } from '@ps5-react/core';
     };
     const t2 = useT();
     return /* @__PURE__ */ (0, jsx)(SideSheet, { title: t2("sources.title"), subtitle: title, onClose, children: /* @__PURE__ */ (0, jsxs)(View, { style: { gap: 42, padding: 9, paddingBottom: 48 }, children: [
+      /* @__PURE__ */ (0, jsx)(Button2, { label: t2("sources.check.refresh"), onPress: metadata.refresh }),
       editions.length > 1 ? /* @__PURE__ */ (0, jsx)(
         Versions,
         {
@@ -135,6 +139,7 @@ import { Text, View, useIsFocused } from '@ps5-react/core';
           Section2,
           {
             group,
+            metadata,
             items,
             selected,
             recommended,
@@ -152,6 +157,7 @@ import { Text, View, useIsFocused } from '@ps5-react/core';
         Section2,
         {
           group: "dlc",
+          metadata,
           items: sections.find(({ group }) => group === "dlc").items,
           selected,
           recommended: -1,

@@ -46,6 +46,14 @@
 - **1,800+ games** to discover, with **Top rated**, **New releases** and a featured spotlight
 - **Browse the whole library** with filters, sorting, scores and download sizes at a glance
 - **Downloads straight to the console**, to internal storage or any USB drive, with live speed and storage stats
+- **File formats before downloading**: each source shows its extension (such as `.ZIP`, `.EXFAT` or `.PKG`) in the source list and selected-source summary. Sources with no identifiable extension show “Unknown format”; archive labels describe the download, not what is inside it.
+- Opening a game checks source metadata in the background (up to three requests at once).
+  VikingFile, DataNodes and FileKeeper pages expose advertised formats and sizes; direct file links
+  use HEAD requests. Results are cached in memory for 10 minutes (one minute for failed or unverified
+  checks), with a refresh button in the source picker. Unsupported hosts, verification pages and
+  network errors remain unverified. Missing sources stay selectable. Sizes from host pages are
+  rounded, multipart totals are approximate, and none of this metadata changes download routing
+  or byte-verification limits. Live checks still need PS5 hardware validation.
 - **Favorites**, **search** with an on-screen keyboard, and a **Files** page to see and clean up what's on your drives
 - **13 languages**: English, Deutsch, Español, Français, Português (Brasil), Русский, Bahasa Indonesia, 日本語, 简体中文, العربية, اردو, हिन्दी, বাংলা
 - **Updates itself**: a new version installs from the console, no PC needed
@@ -248,6 +256,7 @@ npm run dev          # the app in a window on your PC, rebuilt on every save und
 | `npm run dev` | Opens the app in the desktop preview and rebuilds it on every save (state resets on restart) |
 | `npm run preview` | Opens the desktop preview once, without watching |
 | `npm test` | The framework's checks; needed after changes under `ps5-react/`, not for `app/` only |
+| `npm run test:app` | Application formats, live metadata, cache and localization checks (Node.js 22.7+) |
 | `npm run build` | The PS5 app, then `Overdrive.exfat` and `update.zip` (see Building) |
 | `npm run build:app` | The PS5 app only, in `ps5-react/dist/PPSA99058` |
 

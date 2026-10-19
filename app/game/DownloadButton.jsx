@@ -10,7 +10,8 @@ import { Choice, TextAction } from './Choice.jsx';
 import { DISABLED, DownloadLabel, statusLine } from './DownloadLabel.jsx';
 import { MoreOptions, ProblemNote } from './DownloadProblem.jsx';
 import { canDownload, spaceAdvice, spaceNeeded } from './releases.js';
-import { isOverdriveCdn, preferredRelease } from './sources.js';
+import { describeSource, isOverdriveCdn, preferredRelease } from './sources.js';
+import { useSourceMetadata } from './useSourceMetadata.js';
 import { useDownload } from './useDownload.js';
 import { useFreeSpace } from './useFreeSpace.js';
 import { useShadowMount } from './useShadowMount.js';
@@ -35,6 +36,7 @@ import { DownloadFormats, Text, View, motion } from '@ps5-react/core';
   function DownloadButton({ game, start, onDownloaded, nextDown, onRequestDialog }) {
     const t2 = useT();
     const releases = game.releases || [];
+    const metadata = useSourceMetadata(releases);
     const [selected, setSelected] = (0, useState)(() => {
       let jobs = [];
       try {
@@ -59,6 +61,7 @@ import { DownloadFormats, Text, View, motion } from '@ps5-react/core';
       }));
     });
     const release = releases[selected];
+    const source = release ? describeSource(release, metadata.get(release)) : null;
     const download = useDownload(game, release, roots[storage]);
     const { progress, restart, remove, deleteFromDisk, job: job2, error: error2 } = download;
     const free = useFreeSpace(roots, download.status, !job2);
@@ -236,9 +239,10 @@ import { DownloadFormats, Text, View, motion } from '@ps5-react/core';
           onPress: sourceChoice ? () => chooseSource(sourceFocus) : null,
           magic: isOverdriveCdn(release.provider) ? {
             name: release.provider,
-            detail: [t2("sources.cdnFastest"), release.sizeBytes && formatBytes(release.sizeBytes)].filter(Boolean).join(" \xB7 ")
+            detail: [source.format, source.size, source.availability, t2("sources.cdnFastest")].filter(Boolean).join(" \xB7 ")
           } : null,
-          text: [t2("download.source", { source: release.provider }), release.sizeBytes && formatBytes(release.sizeBytes)].filter(Boolean).join(" \xB7 ")
+          text: t2("download.source", { source: release.provider }),
+          detail: [source.format, source.size, source.availability].filter(Boolean).join(" \xB7 ")
         }
       ) : null,
       !job2 ? /* @__PURE__ */ (0, jsx)(

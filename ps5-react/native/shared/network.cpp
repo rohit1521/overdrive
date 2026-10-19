@@ -991,6 +991,9 @@ bool Service::configure(Transfer& t) {
     curl_slist* list = curl_slist_append(t.headers, text.c_str());
     if (!list) ok = false; else t.headers = list;
   };
+  // Keep cookies inside one HTTP redirect chain, never across tasks or downloads.
+  set(CURLOPT_COOKIEFILE, static_cast<const char*>(nullptr));
+  set(CURLOPT_COOKIELIST, "ALL");
   for (const auto& text : job.request.headers) add(text);
   const Source* source = job.sources.empty() ? nullptr : &job.sources[t.source];
   const auto& origin = source ? source->piece.url : job.request.url;
@@ -1019,6 +1022,7 @@ bool Service::configure(Transfer& t) {
     const std::string range = std::to_string(begin)+"-"+std::to_string(begin+t.length-1);
     set(CURLOPT_RANGE, range.c_str());
   } else if (job.request.destination.empty()) {
+    set(CURLOPT_COOKIEFILE, "");
     set(CURLOPT_TIMEOUT, 30L);
     set(CURLOPT_CUSTOMREQUEST, job.request.method.c_str());
     if (job.request.method == "HEAD") set(CURLOPT_NOBODY, 1L);
