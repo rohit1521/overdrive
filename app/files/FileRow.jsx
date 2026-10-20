@@ -66,7 +66,7 @@ import { Text, View, useIsFocused } from '@ps5-react/core';
         ] }),
         armed ? /* @__PURE__ */ (0, jsxs)(View, { style: { flexDirection: "row", alignItems: "center", gap: 9 }, children: [
           /* @__PURE__ */ (0, jsx)(ButtonGlyph, { button: "square", size: 14 }),
-          /* @__PURE__ */ (0, jsx)(Text, { style: { fontFamily: "Inter-Regular", fontSize: 20, fontWeight: 600, color: "#000000" }, children: t2("files.confirmDelete", { size: formatBytes(file.size) }) })
+          /* @__PURE__ */ (0, jsx)(Text, { style: { fontFamily: "Inter-Regular", fontSize: 20, fontWeight: 600, color: "#000000" }, children: t2("files.confirmDelete", { size: formatBytes(file.size, file.approximate) }) })
         ] }) : busy ? /* @__PURE__ */ (0, jsxs)(View, { style: { flexDirection: "row", alignItems: "center", gap: 18 }, children: [
           /* @__PURE__ */ (0, jsx)(ProgressBar, { fraction: installing.fraction, width: 240, active: true }),
           /* @__PURE__ */ (0, jsx)(Text, { style: { fontFamily: "Inter-Regular", fontSize: 20, color: "#f2f2f3" }, children: t2("files.installing", { percent: formatPercent2(Math.round(installing.fraction * 100)) }) })
@@ -79,7 +79,7 @@ import { Text, View, useIsFocused } from '@ps5-react/core';
         )
       ] }),
       /* @__PURE__ */ (0, jsx)(View, { style: { flex: 1 } }),
-      /* @__PURE__ */ (0, jsx)(Text, { style: armed ? { fontFamily: "Inter-Regular", fontSize: 23, fontWeight: 600, color: "#000000" } : { fontFamily: "Inter-Regular", fontSize: 23, color: "#f2f2f3" }, children: formatBytes(file.size) })
+      /* @__PURE__ */ (0, jsx)(Text, { style: armed ? { fontFamily: "Inter-Regular", fontSize: 23, fontWeight: 600, color: "#000000" } : { fontFamily: "Inter-Regular", fontSize: 23, color: "#f2f2f3" }, children: formatBytes(file.size, file.approximate) })
     ] });
   }
   var FileRow = (0, memo)(function FileRow2({ file, armed, installing, shadowMount, autoFocus, focusKey, onPress, onFocus }) {

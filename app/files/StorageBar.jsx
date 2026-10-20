@@ -48,11 +48,11 @@ import { Text, View, motion } from '@ps5-react/core';
           {
             color: focus2 === kind.key ? "#ffffff" : SHADE[kind.key],
             label: t2(`files.kind.${kind.key}`),
-            size: formatBytes(sums[kind.key].size)
+            size: formatBytes(sums[kind.key].size, sums[kind.key].approximate)
           },
           kind.key
         )),
-        /* @__PURE__ */ (0, jsx)(Swatch, { color: OTHER_DATA, label: t2("files.otherData"), size: formatBytes(others) })
+        /* @__PURE__ */ (0, jsx)(Swatch, { color: OTHER_DATA, label: t2("files.otherData"), size: formatBytes(others, sums.all.approximate) })
       ] })
     ] });
   }

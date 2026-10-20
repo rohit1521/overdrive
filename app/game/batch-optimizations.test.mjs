@@ -5,6 +5,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { configure } from '../i18n/core.js';
 import { shapeOf, shownFormat } from '../downloads/format.js';
 import { matchesFormat, releaseFormat } from './source-format.js';
+import { scanDrive, totals } from '../files/scan.js';
 import { cancellation } from '../state/download-sources.js';
 import { UPDATE_FEED } from '../version.js';
 
@@ -42,15 +43,82 @@ test('format filters distinguish images, packages, archives and unknown records'
   assert.equal(releaseFormat({ format: 'archive-set' }), null);
 });
 
+function filesystem(entries) {
+  return {
+    exists: (path) => Object.hasOwn(entries, path),
+    stat: (path) => path === '/data' ? { isDirectory: true } : null,
+    readDir(path) {
+      if (entries[path] instanceof Error) throw entries[path];
+      return entries[path] || [];
+    }
+  };
+}
+
+test('file scanning is deferred, incremental and preserves sizes and sort order', async () => {
+  let yields = 0;
+  const children = Array.from({ length: 140 }, (_, index) => ({ name: `file${index}`, size: 2 }));
+  const fs = filesystem({
+    '/data/homebrew': [{ name: 'PPSA00001', isDirectory: true }, { name: 'PPSA00002.exfat', size: 100 }],
+    '/data/homebrew/PPSA00001': children
+  });
+  const result = await scanDrive(fs, '/data', { wait: async () => { yields++; } });
+  assert.ok(yields >= 3);
+  assert.equal(result.partial, false);
+  assert.equal(result.files[0].titleId, 'PPSA00001');
+  assert.equal(result.files[0].size, 280);
+  assert.equal(result.files[0].approximate, false);
+  assert.equal(totals(result.files).all.size, 380);
+});
+
+test('one global 4000-entry budget bounds scans across many game folders', async () => {
+  const data = { '/data/homebrew': Array.from({ length: 10 }, (_, i) => ({ name: `game${i}`, isDirectory: true })) };
+  for (let i = 0; i < 10; i++) data[`/data/homebrew/game${i}`] = Array.from({ length: 4001 }, (_, j) => ({ name: `file${j}`, size: 1 }));
+  const result = await scanDrive(filesystem(data), '/data', { wait: async () => {} });
+  assert.equal(result.visited, 4000);
+  assert.equal(result.partial, true);
+  assert.equal(result.files.length, 10);
+  assert.ok(result.files.every((file) => file.approximate));
+  assert.ok(totals(result.files, result.partial).all.approximate);
+});
+
+test('file scan cancellation stops before accessing another batch', async () => {
+  const cancel = cancellation();
+  let yields = 0;
+  const fs = filesystem({ '/data/homebrew': Array.from({ length: 200 }, (_, i) => ({ name: `game${i}.exfat`, size: 1 })) });
+  await assert.rejects(scanDrive(fs, '/data', { signal: cancel.signal, wait: async () => {
+    if (++yields === 2) cancel.cancel();
+  } }), /cancelled/);
+  assert.equal(yields, 2);
+});
+
+test('unreadable folders and depth-limited sizes are explicitly partial', async (context) => {
+  context.mock.method(console, 'log', () => {});
+  const fs = filesystem({
+    '/data/homebrew': [{ name: 'broken', isDirectory: true }, { name: 'deep', isDirectory: true }],
+    '/data/homebrew/broken': new Error('permission denied'),
+    ...Object.fromEntries(Array.from({ length: 6 }, (_, i) =>
+      [`/data/homebrew/deep${'/deep'.repeat(i)}`, [{ name: 'deep', isDirectory: true }]]))
+  });
+  const result = await scanDrive(fs, '/data', { wait: async () => {} });
+  assert.ok(result.partial);
+  assert.equal(result.errors.length, 1);
+  assert.ok(result.files.every((file) => file.approximate));
+});
+
+test('missing storage is an error rather than a successful empty scan', async () => {
+  await assert.rejects(scanDrive(filesystem({}), '/gone', { wait: async () => {} }), /Storage is unavailable/);
+});
+
 test('batch UI strings and manual-update links are present in every locale', () => {
   const directory = new URL('../i18n/locales/', import.meta.url);
   for (const name of readdirSync(directory).filter((name) => name.endsWith('.json'))) {
     const messages = JSON.parse(readFileSync(new URL(name, directory), 'utf8'));
     for (const key of ['sources.formatAll', 'sources.formatPreference', 'sources.formatFilter', 'sources.noFormatMatch',
-      'torbox.preparing']) {
+      'torbox.preparing', 'files.scanProgress', 'files.scanPartial', 'files.scanFailed', 'files.rescan']) {
       assert.ok(messages[key], `${name}: ${key}`);
     }
     assert.ok(messages['torbox.preparing'].includes('{percent}'));
+    assert.ok(messages['files.scanProgress'].includes('{count}'));
     assert.ok(messages['update.replaceByHand'].includes('rohit1521/overdrive'), name);
   }
 });

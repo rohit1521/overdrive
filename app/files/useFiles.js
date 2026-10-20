@@ -1,12 +1,13 @@
 // ../pub-game-store/native/files/useFiles.js
 // reconstructed from the esbuild bundle in eboot.bin
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { deletionTargets, scanDrive } from './scan.js';
 import { getGame } from '../state/catalog.js';
 import { deletesPackages } from '../state/package-cleanup.js';
 import { COMPLETE } from '../state/download-queue.js';
 import { downloadQueue, shadowMountUp } from '../state/downloads.js';
+import { cancellation } from '../state/download-sources.js';
 import { mountedImages, shadowRequest } from '../state/shadowmount.js';
 import { FileSystem, Http, Packages, Platform } from '@ps5-react/core';
 
@@ -40,14 +41,29 @@ import { FileSystem, Http, Packages, Platform } from '@ps5-react/core';
   function useFiles(root2) {
     const [version2, setVersion] = (0, useState)(0);
     const rescan = () => setVersion((value) => value + 1);
-    const files = (0, useMemo)(() => {
-      const installed = installedTitles();
-      return scanDrive(FileSystem, root2).map((file) => ({
-        ...file,
-        game: file.titleId ? getGame(file.titleId) ?? null : null,
-        installed: Boolean(file.titleId && installed.has(file.titleId))
-      }));
+    const [scan, setScan] = useState({ root: root2, files: [], scanning: true, visited: 0, partial: false, error: "" });
+    useEffect(() => {
+      const operation = cancellation();
+      setScan((last) => ({ root: root2, files: last.root === root2 ? last.files : [], scanning: true, visited: 0, partial: false, error: "" }));
+      void scanDrive(FileSystem, root2, { signal: operation.signal, onProgress: (visited) => {
+        if (!operation.signal.aborted) setScan((last) => ({ ...last, visited }));
+      } }).then((result) => {
+        if (operation.signal.aborted) return;
+        const installed = installedTitles();
+        setScan({ root: root2, files: result.files.map((file) => ({
+          ...file,
+          game: file.titleId ? getGame(file.titleId) ?? null : null,
+          installed: Boolean(file.titleId && installed.has(file.titleId))
+        })), scanning: false, visited: result.visited, partial: result.partial, error: result.errors.join("; ") });
+      }).catch((error) => {
+        if (!operation.signal.aborted) {
+          console.log(`[files] scan stopped: ${error.message}`);
+          setScan({ root: root2, files: [], scanning: false, visited: 0, partial: false, error: error.message });
+        }
+      });
+      return operation.cancel;
     }, [root2, version2]);
+    const current = scan.root === root2 ? scan : { files: [], scanning: true, visited: 0, partial: false, error: "" };
     const [installing, setInstalling] = (0, useState)(null);
     const [shadowMount, setShadowMount] = (0, useState)(true);
     (0, useEffect)(() => {
@@ -113,7 +129,7 @@ import { FileSystem, Http, Packages, Platform } from '@ps5-react/core';
       for (const job2 of jobs) queue.remove(job2.id);
       rescan();
     };
-    return { files, installing, install, remove, rescan, shadowMount };
+    return { ...current, installing, install, remove, rescan, shadowMount };
   }
 
 export { useFiles };

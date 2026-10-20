@@ -60,6 +60,10 @@
   recommendations; changing a preference or filter never switches an explicitly selected or queued
   source. Existing full-game and compatibility ranking takes precedence over format preference.
   Unknown links remain available under All formats.
+- Files are scanned incrementally outside rendering, yielding every 64 entries or about 8 ms.
+  A shared 4,000-entry budget and depth limit bound each scan. Partial sizes are marked `~`,
+  unreadable storage is reported, Scan again retries, and file rows are virtualized. Individual native directory reads remain
+  synchronous; this is not a background-thread filesystem scanner.
 - **Favorites**, **search** with an on-screen keyboard, and a **Files** page to see and clean up what's on your drives
 - **13 languages**: English, Deutsch, Español, Français, Português (Brasil), Русский, Bahasa Indonesia, 日本語, 简体中文, العربية, اردو, हिन्दी, বাংলা
 - **Updates itself**: a new version installs from the console, no PC needed

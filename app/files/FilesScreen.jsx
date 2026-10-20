@@ -13,11 +13,12 @@ import { driveName, storageRoots } from '../state/downloads.js';
 import { useNavActions } from '../state/nav.jsx';
 import { formatBytes } from '../state/size.js';
 import { ButtonHints } from '../ui/ButtonHints.jsx';
+import { Button2 } from '../ui/Button.jsx';
 import { FocusRing } from '../ui/FocusRing.jsx';
 import { Icon } from '../ui/Icon.jsx';
 import { HINT } from '../ui/Legend.jsx';
 import { colors } from '../ui/colors.js';
-import { FileSystem, FocusScope, ScrollView, Text, View, useIsFocused } from '@ps5-react/core';
+import { FileSystem, FocusScope, ScrollView, Text, View, VirtualList, useIsFocused } from '@ps5-react/core';
 
   var LIST_WIDTH = 904;
   var ARM_MS2 = 4e3;
@@ -68,8 +69,8 @@ import { FileSystem, FocusScope, ScrollView, Text, View, useIsFocused } from '@p
     const [drive, setDrive] = (0, useState)(0);
     const [kind, setKind] = (0, useState)("all");
     const root2 = roots[drive];
-    const { files, installing, install, remove, shadowMount } = useFiles(root2);
-    const sums = (0, useMemo)(() => totals(files), [files]);
+    const { files, installing, install, remove, shadowMount, scanning, visited, partial, error, rescan } = useFiles(root2);
+    const sums = (0, useMemo)(() => totals(files, partial), [files, partial]);
     const shown = kind === "all" ? files : files.filter((file) => file.kind === kind);
     const usage = (0, useMemo)(() => {
       try {
@@ -93,14 +94,16 @@ import { FileSystem, FocusScope, ScrollView, Text, View, useIsFocused } from '@p
     };
     const onAction = (action) => {
       if (action !== "square" || !focused) return false;
+      if (scanning) return true;
       if (armed !== focused.path) {
         setArmed(focused.path);
         return true;
       }
       setArmed(null);
-      const index = shown.indexOf(focused);
+      const index = shown.findIndex((file) => file.path === focused.path);
+      if (index < 0) return true;
       const next = shown[index + 1] ?? shown[index - 1];
-      const file = focused;
+      const file = shown[index];
       remove(file).then(() => {
         focusLater(next ? fileKey(next.path) : `files-kind:${kind}`);
         setNotice(t2("files.deleted", { name: file.game?.title ?? file.name }));
@@ -118,7 +121,7 @@ import { FileSystem, FocusScope, ScrollView, Text, View, useIsFocused } from '@p
       /* @__PURE__ */ (0, jsxs)(View, { style: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", paddingHorizontal: 48, paddingTop: 48, paddingBottom: 36 }, children: [
         /* @__PURE__ */ (0, jsxs)(Text, { style: { width: 1140, fontFamily: "Inter-Regular", fontSize: 30, fontWeight: 600, color: "#f2f2f3", numberOfLines: 1, ellipsizeMode: "tail", lineHeight: 42, letterSpacing: -0.75 }, children: [
           t2("files.title"),
-          /* @__PURE__ */ (0, jsx)(Text, { style: { fontWeight: 400, color: "#8a8a94" }, children: `  ${t2("files.summary", { count: sums.all.count, size: formatBytes(sums.all.size) })}` })
+          /* @__PURE__ */ (0, jsx)(Text, { style: { fontWeight: 400, color: "#8a8a94" }, children: `  ${t2("files.summary", { count: sums.all.count, size: formatBytes(sums.all.size, partial || sums.all.approximate) })}` })
         ] }),
         /* @__PURE__ */ (0, jsx)(Text, { style: { width: 600, textAlign: "end", fontFamily: "Inter-Regular", fontSize: 21, color: "#a3a3ab", numberOfLines: 2, ellipsizeMode: "tail", lineHeight: 30 }, children: notice })
       ] }),
@@ -153,7 +156,7 @@ import { FileSystem, FocusScope, ScrollView, Text, View, useIsFocused } from '@p
                 icon: item.icon,
                 label: t2(`files.kind.${item.key}`),
                 current: kind === item.key,
-                detail: sums[item.key].count ? formatBytes(sums[item.key].size) : null,
+                detail: sums[item.key].count ? formatBytes(sums[item.key].size, partial || sums[item.key].approximate) : null,
                 focusKey: `files-kind:${item.key}`,
                 onFocus: () => setFocused(null),
                 onPress: () => setKind(item.key),
@@ -165,8 +168,14 @@ import { FileSystem, FocusScope, ScrollView, Text, View, useIsFocused } from '@p
         ] }),
         /* @__PURE__ */ (0, jsxs)(View, { style: { flex: 1, gap: 36 }, children: [
           /* @__PURE__ */ (0, jsx)(StorageBar, { usage, sums, focus: focused?.kind ?? (kind === "all" ? null : kind), width: LIST_WIDTH }),
-          shown.length ? /* @__PURE__ */ (0, jsx)(ScrollView, { style: { flex: 1 }, children: /* @__PURE__ */ (0, jsx)(View, { style: { gap: 6, paddingBottom: 48 }, children: shown.map(
-            (file, index) => /* @__PURE__ */ (0, jsx)(
+          scanning || partial || error ? /* @__PURE__ */ (0, jsx)(Text, {
+            style: { width: LIST_WIDTH, fontFamily: "Inter-Regular", fontSize: 21, color: colors.muted, lineHeight: 30 },
+            children: scanning ? t2("files.scanProgress", { count: visited }) : error ? `${t2("files.scanFailed")} ${error}` : t2("files.scanPartial")
+          }) : null,
+          !scanning ? /* @__PURE__ */ (0, jsx)(Button2, { size: "sm", label: t2("files.rescan"), onPress: rescan }) : null,
+          shown.length ? /* @__PURE__ */ (0, jsx)(ScrollView, { style: { flex: 1 }, children: /* @__PURE__ */ (0, jsx)(VirtualList, {
+            style: { paddingBottom: 48 }, data: shown, numColumns: 1, itemHeight: 102, rowGap: 6,
+            keyExtractor: (file) => file.path, renderItem: ({ item: file, index }) => /* @__PURE__ */ (0, jsx)(
               FileRow,
               {
                 file,
@@ -176,11 +185,11 @@ import { FileSystem, FocusScope, ScrollView, Text, View, useIsFocused } from '@p
                 installing: installing?.path === file.path ? installing : null,
                 shadowMount,
                 onFocus: () => focusFile(file),
-                onPress: isPackage(file.name) ? () => install(file) : void 0
+                onPress: !scanning && isPackage(file.name) ? () => install(file) : void 0
               },
               file.path
             )
-          ) }) }) : /* @__PURE__ */ (0, jsx)(Empty2, {})
+          }) }) : scanning || error ? null : /* @__PURE__ */ (0, jsx)(Empty2, {})
         ] })
       ] }),
       /* @__PURE__ */ (0, jsx)(ButtonHints, { hints })
