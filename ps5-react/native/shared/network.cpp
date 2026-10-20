@@ -132,7 +132,7 @@ struct Transfer {
   bool glitch = false;
   // Opened while its origin cooled down: once answered on a fresh connection, the cooldown ends.
   bool gated = false;
-  Clock::time_point started{};
+  Clock::time_point started{}, recovery_until{};
   CURLcode result = CURLE_OK;
 };
 
@@ -709,6 +709,7 @@ private:
   bool check_sample(Job& job);
   void verify_mirrors(Job& job);
   CURLcode perform_probe(Transfer& probe);
+  CURLcode retry_probe(Transfer& probe);
   bool configure(Transfer& t);
   void finish_transfer(Transfer& t);
   void snapshot(Job& job, unsigned allowed, Clock::time_point now, Clock::time_point& previous,
@@ -1043,7 +1044,16 @@ CURLcode Service::perform_probe(Transfer& probe) {
     probe.error = "could not schedule range probe"; return CURLE_FAILED_INIT;
   }
   bool done = false;
+  auto last_pass = Clock::now();
+  auto last_wall = std::chrono::system_clock::now();
   while (!done && !probe.job->cancelled) {
+    const auto now = Clock::now();
+    const auto wall = std::chrono::system_clock::now();
+    if (now-last_pass > suspension_gap || wall-last_wall > suspension_gap) {
+      probe.recovery_until = now+suspension_grace;
+      platform_log("download probe: resumed after suspension; allowing network recovery");
+    }
+    last_pass = now; last_wall = wall;
     int running = 0;
     const auto state = curl_multi_perform(multi_, &running);
     if (state != CURLM_OK) { probe.error = curl_multi_strerror(state); break; }
@@ -1059,20 +1069,30 @@ CURLcode Service::perform_probe(Transfer& probe) {
   return probe.job->cancelled ? CURLE_ABORTED_BY_CALLBACK : result;
 }
 
+CURLcode Service::retry_probe(Transfer& probe) {
+  Job& job = *probe.job;
+  probe.recovery_until = {};
+  CURLcode result = CURLE_FAILED_INIT;
+  for (unsigned attempt = 1;;) {
+    probe.accepted = 0;
+    if (!configure(probe)) return CURLE_FAILED_INIT;
+    result = perform_probe(probe); probe.result = result;
+    if (job.cancelled) return CURLE_ABORTED_BY_CALLBACK;
+    const auto now = Clock::now();
+    const bool recovering = cut_by_suspension(probe, now, probe.recovery_until);
+    if (!recovering && attempt >= std::min(6u, attempt_limit(probe))) return result;
+    log_failure(probe, attempt);
+    if (!recovering) ++job.retries;
+    const auto retry_at = now+retry_delay(probe, recovering ? 1 : attempt++);
+    while (!job.cancelled && Clock::now() < retry_at) curl_multi_poll(multi_, nullptr, 0, 50, nullptr);
+    if (job.cancelled) return CURLE_ABORTED_BY_CALLBACK;
+  }
+}
+
 bool Service::probe_source(Job& job, unsigned source_index) {
   Transfer& probe = transfers_[0];
   probe.probe = true; probe.source = source_index;
-  CURLcode result = CURLE_FAILED_INIT;
-  for (unsigned attempt = 1;; ++attempt) {
-    probe.accepted = 0;
-    if (!configure(probe)) { job.fail(probe.error); return false; }
-    result = perform_probe(probe); probe.result = result;
-    if (job.cancelled) return false;
-    if (attempt >= std::min(6u, attempt_limit(probe))) break;
-    ++job.retries;
-    const auto retry_at = Clock::now()+retry_delay(probe, attempt);
-    while (!job.cancelled && Clock::now() < retry_at) curl_multi_poll(multi_, nullptr, 0, 50, nullptr);
-  }
+  const CURLcode result = retry_probe(probe);
   if (job.cancelled) return false;
   if (job.request.reject_html && denied(probe)) { job.fail(probe.error); return false; }
   if (probe.status >= 400) {
@@ -1149,11 +1169,12 @@ bool Service::check_sample(Job& job) {
   Transfer& probe = transfers_[0];
   probe.probe = true; probe.source = 0; probe.mirror = 0; probe.accepted = 0;
   probe.probe_from = end-length; probe.probe_length = length;
-  const bool fetched = configure(probe) && perform_probe(probe) == CURLE_OK && probe.status == 206 && probe.content_range &&
+  const bool fetched = retry_probe(probe) == CURLE_OK && probe.status == 206 && probe.content_range &&
     probe.range_begin == end-length && probe.range_end == end-1 && probe.range_total == job.total &&
     probe.sample.size() == length && (job.last_modified.empty() || probe.last_modified == job.last_modified);
   probe.probe_from = 0; probe.probe_length = 1;
   if (job.cancelled) return false;
+  if (!fetched && denied(probe)) { job.fail(probe.error); return false; }
   if (!fetched) { job.fail(probe.error.empty() ? "could not re-read the partial file's tail from the server" : probe.error); return false; }
   std::string local(length, '\0');
   if (pread(job.fd, local.data(), local.size(), static_cast<off_t>(end-length)) != static_cast<ssize_t>(length)) {

@@ -123,6 +123,14 @@ published, not its content. Recovery does not contact the provider or accept an
 existing file by name/size alone. Keep the receipt with the final file for crash
 recovery.
 
+The initial range probe and resume-tail check retry transient connection errors and
+HTTP 408/429/5xx with bounded backoff (up to six attempts). A process suspension
+detected from either the monotonic or wall clock gives interrupted probes the same
+60-second network-recovery grace as range transfers; server HTTP errors still count
+towards their retry budget. Cancellation stops retry waits. Authorization errors and
+file-identity mismatches are not relaxed: applications must renew expired links and
+the native layer must still verify the same bytes before resuming.
+
 A sequential partial without a checkpoint cannot resume. An app may offer an
 explicit restart that discards its exclusively owned partial and sidecars after
 cancellation has finished. Never discard or overwrite an existing final file

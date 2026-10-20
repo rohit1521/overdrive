@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased — resumable probe recovery
+
+- Resume-tail validation retries transient transport and HTTP failures instead of failing a
+  valid partial file immediately. Initial probes and resume-tail probes allow bounded network
+  recovery after a detected suspension, without weakening content identity checks.
+
 ## Unreleased — private download links in logs
 
 - Transfer failure logs omit URL query strings and fragments so signed CDN tokens are not logged.

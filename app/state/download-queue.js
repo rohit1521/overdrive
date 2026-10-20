@@ -264,6 +264,18 @@ import { VIKING_PAGE_PREFIX, VIKING_PREFIX, describeVikingCapture, linkPageMetad
       job2.state = "queued";
       return true;
     }
+    function refreshTorBox(job, message) {
+      const part = job.parts?.[job.partIndex];
+      const current = part ?? job;
+      if (!current.options?.viaTorBox || !/HTTP (?:401|403|404|410)\b/.test(message) ||
+          (current.linkRefreshes || 0) >= 2) return false;
+      current.linkRefreshes = (current.linkRefreshes || 0) + 1;
+      delete current.options;
+      job.error = "";
+      job.state = "queued";
+      console.log(`[download-queue] renewing expired TorBox link (attempt ${current.linkRefreshes}/2)`);
+      return true;
+    }
     // Deletes the PKGs the console installed, when settings ask it (on by default): the ones it refused
     // stay to be installed by hand. An archive's extraction folder goes whole once every package in it
     // is installed, its other files with it. Returns the bytes freed; a file that won't go stays.
@@ -452,7 +464,10 @@ import { VIKING_PAGE_PREFIX, VIKING_PREFIX, describeVikingCapture, linkPageMetad
         const expired = !refused && job2.capturedLink && unwritten && /HTTP (?:401|403|404|410)/.test(cause(error2.message));
         if (expired) console.log("[download-queue] the captured link expired while queued; asking for the check again");
         const browser = !viaTorBox && !refused && (expired || error2 instanceof BrowserRequired || /browser verification required/i.test(cause(error2.message)));
-        const retried = job2.state !== "pausing" && !job2.cancelling && browser && active2.transferring && reresolve(job2);
+        const retried = job2.state !== "pausing" && !job2.cancelling && (
+          viaTorBox && refreshTorBox(job2, cause(error2.message)) ||
+          browser && active2.transferring && reresolve(job2)
+        );
         // A source that fails stays failed: the player picks another (the automatic switch to an
         // "equivalent" source was removed on 2026-10-16 at the user's request).
         if (!retried && job2.state !== "pausing") {
@@ -1622,6 +1637,8 @@ import { VIKING_PAGE_PREFIX, VIKING_PREFIX, describeVikingCapture, linkPageMetad
         const job2 = find(id);
         if (job2.state !== "paused" && job2.state !== "failed") return;
         delete job2.reresolved;
+        delete job2.linkRefreshes;
+        if (job2.parts?.[job2.partIndex]) delete job2.parts[job2.partIndex].linkRefreshes;
         job2.state = "queued";
         job2.error = "";
         change();
@@ -1636,6 +1653,8 @@ import { VIKING_PAGE_PREFIX, VIKING_PREFIX, describeVikingCapture, linkPageMetad
         if (paths.length) await removing(job2, () => removeAll(paths));
         delete job2.directURL;
         delete job2.reresolved;
+        delete job2.linkRefreshes;
+        if (job2.parts?.[job2.partIndex]) delete job2.parts[job2.partIndex].linkRefreshes;
         if (job2.parts?.[job2.partIndex] && !job2.parts[job2.partIndex].completed) {
           job2.parts[job2.partIndex].written = 0;
           delete job2.parts[job2.partIndex].options;

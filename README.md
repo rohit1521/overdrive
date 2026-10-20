@@ -170,6 +170,18 @@ key configured when resuming a TorBox transfer. Removing the key does not cancel
 transfer. Do not share API keys or signed CDN links. API behavior is tested with mocked responses;
 an authenticated TorBox download and PS5 execution still require validation with your own account.
 
+If a TorBox CDN returns HTTP 401/403/404/410 during a transfer, Overdrive requests a fresh link
+and resumes the same owned partial file, with at most two automatic renewals per file/volume.
+Native size, validator and checkpoint checks still have to match; changed content is not appended.
+An explicit Resume resets the renewal budget. Account errors, disk failures and changed-file
+errors do not trigger this link-renewal path. No automatic source switching or restart-from-zero
+is performed.
+
+The native resume-tail check now retries transient network/HTTP failures with bounded backoff,
+like the initial range probe. Suspension recovery grace also covers those two probe phases.
+Completed ranges remain checkpointed; partially received ranges may be fetched again. These
+paths have local interruption/retry tests, not a claim of universal PS5 rest-mode compatibility.
+
 ## Updates
 
 This fork defaults to releases from **rohit1521/overdrive**, not the upstream project. The existing

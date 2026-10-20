@@ -33,6 +33,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
     expired = set()
     modified = "Wed, 01 Jan 2025 00:00:00 GMT"
     mutated = False
+    tail_failure = None
     # /throttled answers like an archive.org storage node: past a few concurrent ranges it refuses
     # with 500/503/429, and it resets some ranges halfway once.
     busy = 0
@@ -44,6 +45,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
     # of the ranges asked for next answer 503.
     streams = set()
     suspend_refusals = 0
+    suspend_checks = set()
 
     def respond(self, head=False):
         if self.path == "/hop":
@@ -110,6 +112,16 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.send_header("Content-Length", "0")
             self.end_headers()
             return
+        if path == "/slow-tail-modified" and selected:
+            match = re.fullmatch(r"bytes=(\d+)-(\d+)", selected)
+            if match and int(match[2]) - int(match[1]) + 1 == 65536 and self.tail_failure:
+                status = Handler.tail_failure
+                if status == 503:
+                    Handler.tail_failure = None
+                self.send_response(status)
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+                return
         if path == "/redirect":
             self.send_response(302)
             self.send_header("Location", "/file")
@@ -214,6 +226,15 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if path == "/suspend" and selected != "bytes=0-0":
             with self.guard:
                 Handler.streams.add(self.connection)
+        if path in self.suspend_checks and selected and (path == "/suspend-probe" and selected == "bytes=0-0" or
+                         path == "/slow-suspend-tail-modified" and end-start+1 == 65536):
+            with self.guard:
+                first = ("suspended-check", path) not in self.retried
+                self.retried.add(("suspended-check", path))
+                if first:
+                    Handler.streams.add(self.connection)
+            if first:
+                time.sleep(1)
         try:
             for offset in range(start, end+1, 65536):
                 index = offset % len(payload)
@@ -562,6 +583,37 @@ def main():
             path.unlink()
         suspended(0)
         suspended(1)
+        # Rest mode can also interrupt the initial size probe or a resumed file's tail validation.
+        def suspended_check(endpoint, path, resume=False):
+            if resume:
+                assert run(endpoint, path, cancel=180, digest=hashlib.sha256(DATA).hexdigest())["state"] == "cancelled"
+            with Handler.guard:
+                Handler.streams.clear()
+                Handler.suspend_checks.add(endpoint)
+            client = subprocess.Popen([str(binary), origin+endpoint, str(path), "4",
+                                       str(1024*1024), "0", hashlib.sha256(DATA).hexdigest()],
+                                      stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
+            try:
+                deadline = time.monotonic()+5
+                while not Handler.streams and time.monotonic() < deadline:
+                    time.sleep(0.01)
+                assert Handler.streams, "probe/sample did not start"
+                client.send_signal(signal.SIGSTOP)
+                with Handler.guard:
+                    for stream in Handler.streams:
+                        try: stream.shutdown(socket.SHUT_RDWR)
+                        except OSError: pass
+                    Handler.streams.clear()
+                time.sleep(10.5)
+                client.send_signal(signal.SIGCONT)
+                out = json.loads(client.communicate(timeout=20)[0])
+            finally:
+                client.kill()
+            assert out["state"] == "completed" and out["retries"] == 0, out
+            assert path.read_bytes() == DATA
+            path.unlink()
+        suspended_check("/suspend-probe", directory / "suspended-probe")
+        suspended_check("/slow-suspend-tail-modified", directory / "suspended-tail", resume=True)
         path = directory / "shutdown"
         assert run("/slow", path, stop=180)["state"] == "stopped"
         assert run("/slow", path)["state"] == "completed"
@@ -593,6 +645,24 @@ def main():
         assert len([r for r in Handler.requests[before:] if r[1] != "bytes=0-0"]) < 16
         path.unlink()
         # Without a strong ETag, Last-Modified guards ranges and resumes; the kept tail is re-read first.
+        path = directory / "tail-retry"
+        assert run("/slow-tail-modified", path, cancel=180)["state"] == "cancelled"
+        Handler.tail_failure = 503
+        tail = run("/slow-tail-modified", path)
+        assert tail["state"] == "completed" and tail["retries"] == 1, tail
+        assert path.read_bytes() == DATA
+        path.unlink()
+        path = directory / "tail-denied"
+        assert run("/slow-tail-modified", path, cancel=180)["state"] == "cancelled"
+        Handler.tail_failure = 403
+        tail = run("/slow-tail-modified", path)
+        assert tail["state"] == "failed" and "HTTP 403" in tail["error"], tail
+        assert tail["retries"] == 0, tail
+        assert Path(str(path)+".part").exists()
+        Handler.tail_failure = None
+        assert run("/slow-tail-modified", path)["state"] == "completed"
+        assert path.read_bytes() == DATA
+        path.unlink()
         path = directory / "slow-modified"
         assert run("/slow-modified", path, cancel=180)["state"] == "cancelled"
         before = len(Handler.requests)

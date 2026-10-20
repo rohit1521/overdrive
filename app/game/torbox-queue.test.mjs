@@ -20,8 +20,12 @@ register(`data:text/javascript,${encodeURIComponent(`
 const { createDownloadQueue } = await import('../state/download-queue.js');
 configure(() => JSON.parse(readFileSync(new URL('../i18n/locales/en.json', import.meta.url), 'utf8')));
 
-function fixture() {
+function fixture({ failure = "HTTP 500", failures = Infinity, progress = 0, saved } = {}) {
   const files = new Map();
+  if (saved) {
+    files.set('/test/overdrive/downloads.json', JSON.stringify(saved));
+    for (const job of saved.jobs) files.set(`${job.downloadDestination}.part`, 'partial');
+  }
   const transfers = [];
   let enabled = true, resolved = 0, fail = true;
   const fs = {
@@ -47,12 +51,16 @@ function fixture() {
     power: { keepAwake() {} }, notifications: { show() {} },
     downloads: { enqueue(options) {
       transfers.push(options);
-      return { subscribe: () => () => {}, done: Promise.resolve().then(() => {
-        if (fail) throw new Error('HTTP 403 browser verification required');
+      return { subscribe: (listener) => {
+        if (progress) listener({ state: "downloading", completedBytes: progress, total: 10 });
+        return () => {};
+      }, done: Promise.resolve().then(() => {
+        if (fail && transfers.length <= failures) throw new Error(failure);
         files.set(options.destination, '0123456789');
       }) };
     } }
   });
+
   const release = { id: 'source', filename: 'game.binary', format: 'binary',
     provider: 'VikingFile', url: 'https://vikingfile.com/f/example123' };
   const enqueue = (selected = release) => queue.enqueue({ id: 'PPSA00001', title: 'Test' }, selected, '/data');
@@ -66,6 +74,63 @@ async function settled(queue) {
   }
   assert.fail('Queue did not settle');
 }
+
+test('an expired TorBox link refreshes automatically after progress without losing its checkpoint range size', async () => {
+  const f = fixture({ failure: "HTTP 403 browser verification required", failures: 1, progress: 4 });
+  f.enqueue();
+  await settled(f.queue);
+  assert.equal(f.queue.snapshot()[0].state, 'file-downloaded');
+  assert.equal(f.resolutions(), 2);
+  assert.equal(f.transfers[1].rangeBytes, f.transfers[0].rangeBytes);
+  assert.ok(f.transfers[1].url.endsWith('secret-2'));
+});
+
+test('expired-link recovery stops after two refreshes rather than looping forever', async () => {
+  const f = fixture({ failure: "HTTP 401 browser verification required" });
+  f.enqueue();
+  await settled(f.queue);
+  assert.equal(f.queue.snapshot()[0].state, 'failed');
+  assert.equal(f.resolutions(), 3);
+  assert.equal(f.transfers.length, 3);
+});
+
+test('expired TorBox multipart links refresh without changing the current volume checkpoint', async () => {
+  const f = fixture({ failure: "HTTP 410", failures: 1, progress: 4 });
+  f.enqueue({ ...f.release, id: 'set', format: 'archive-set', filename: 'set-game',
+    parts: [{ number: 1, sources: [f.release] }] });
+  await settled(f.queue);
+  assert.equal(f.resolutions(), 2);
+  assert.equal(f.transfers.length, 2);
+  assert.equal(f.transfers[1].destination, f.transfers[0].destination);
+  assert.equal(f.transfers[1].rangeBytes, f.transfers[0].rangeBytes);
+});
+
+test('restart recovery re-resolves a TorBox URL and preserves the existing range geometry', async () => {
+  const original = fixture();
+  original.enqueue();
+  await settled(original.queue);
+  const saved = JSON.parse(original.files.get('/test/overdrive/downloads.json'));
+  saved.jobs[0].state = 'downloading';
+  saved.jobs[0].written = 4;
+  const reopened = fixture({ saved, failures: 0 });
+  await settled(reopened.queue);
+  const [restored] = reopened.queue.snapshot();
+  assert.equal(restored.state, 'file-downloaded');
+  assert.equal(reopened.resolutions(), 1);
+  assert.equal(reopened.transfers[0].destination, original.transfers[0].destination);
+  assert.equal(reopened.transfers[0].rangeBytes, original.transfers[0].rangeBytes);
+});
+
+test('content-identity and disk failures never trigger automatic TorBox link renewal', async () => {
+  for (const failure of ['server changed the resource (ETag, Last-Modified or size differ)', 'No space left on device']) {
+    const f = fixture({ failure });
+    f.enqueue();
+    await settled(f.queue);
+    assert.equal(f.queue.snapshot()[0].state, 'failed');
+    assert.equal(f.resolutions(), 1);
+    assert.equal(f.transfers.length, 1);
+  }
+});
 
 test('single downloads persist no signed URLs, fail without browser fallback and regenerate on resume', async () => {
   const f = fixture();
