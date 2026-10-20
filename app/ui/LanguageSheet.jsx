@@ -17,6 +17,8 @@ import { LEVELS, setVibrationLevel, useVibrationLevel } from './haptics.js';
 import { LIMITS, setSpeedLimit, useSpeedLimit } from '../state/speed-limit.js';
 import { setDeletePackages, useDeletePackages } from '../state/package-cleanup.js';
 import { clearTorBoxKey, setTorBoxKey, torboxError, torboxKey, useTorBox } from '../state/torbox-session.js';
+import { setSourcePreference, useSourcePreference } from '../state/source-preference.js';
+import { FORMAT_PREFERENCES, formatLabel } from '../game/source-format.js';
 import { Text, View, useIsFocused } from '@ps5-react/core';
 
   var nameOf = (code) => LOCALES.find((locale2) => locale2.code === code).name;
@@ -115,6 +117,7 @@ import { Text, View, useIsFocused } from '@ps5-react/core';
   function LanguageSheet({ onClose }) {
     const t2 = useT();
     const torbox = useTorBox();
+    const preference = useSourcePreference();
     const [editingTorBox, setEditingTorBox] = useState(false);
     const [torboxFailure, setTorboxFailure] = useState(torboxError);
     const choice2 = languageChoice();
@@ -133,6 +136,8 @@ import { Text, View, useIsFocused } from '@ps5-react/core';
       /* @__PURE__ */ (0, jsx)(SectionLabel, { icon: "download", title: t2("settings.downloads") }),
       /* @__PURE__ */ (0, jsx)(SpeedLimit, {}),
       /* @__PURE__ */ (0, jsx)(DeletePackages, {}),
+      /* @__PURE__ */ (0, jsx)(Row4, { code: "source-format", name: t2("sources.formatPreference"),
+        detail: formatLabel(preference), onPress: () => setSourcePreference(FORMAT_PREFERENCES[(FORMAT_PREFERENCES.indexOf(preference) + 1) % FORMAT_PREFERENCES.length]) }),
       /* @__PURE__ */ (0, jsx)(Row4, { code: "torbox", name: t2("torbox.title"),
         detail: t2(torbox ? "torbox.enabled" : "torbox.detail"), checked: torbox,
         onPress: () => setEditingTorBox(true) }),

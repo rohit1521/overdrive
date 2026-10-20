@@ -54,6 +54,12 @@
   network errors remain unverified. Missing sources stay selectable. Sizes from host pages are
   rounded, multipart totals are approximate, and none of this metadata changes download routing
   or byte-verification limits. Live checks still need PS5 hardware validation.
+- Source checks prioritize the selected download and cancel requests when no open screen needs them.
+  Cached-only checks do not trigger extra UI updates. The source picker filters EXFAT, images,
+  packages, archives and unknown formats. Settings can save a preferred format for initial source
+  recommendations; changing a preference or filter never switches an explicitly selected or queued
+  source. Existing full-game and compatibility ranking takes precedence over format preference.
+  Unknown links remain available under All formats.
 - **Favorites**, **search** with an on-screen keyboard, and a **Files** page to see and clean up what's on your drives
 - **13 languages**: English, Deutsch, Español, Français, Português (Brasil), Русский, Bahasa Indonesia, 日本語, 简体中文, العربية, اردو, हिन्दी, বাংলা
 - **Updates itself**: a new version installs from the console, no PC needed
@@ -148,7 +154,7 @@ or your plan's download limits. No validation download is created.
 
 When enabled, host-page sources resolve through TorBox's web-download API instead of opening the
 PS5 browser. Direct files and split manifests still use their normal path. TorBox may first need to
-cache the file; Overdrive stays at Resolving for up to about ten minutes of polling, after which
+cache the file; Overdrive shows preparation percentage and ETA while Resolving for up to about ten minutes of polling, after which
 you can resume later. Multipart archive volumes are submitted separately. Existing TorBox items
 with the exact same source URL are reused, and remote items are never deleted by Overdrive.
 Unsupported hosts, account/plan limits and ambiguous multi-file results fail explicitly rather than

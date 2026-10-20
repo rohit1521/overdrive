@@ -36,8 +36,11 @@ function fixture() {
   };
   const sources = withTorBox({ resolve: async () => { throw new BrowserRequired('https://vikingfile.com/f/example123'); } }, {
     enabled: () => enabled,
-    resolve: async () => ({ viaTorBox: true, url: `https://test.tb-cdn.pw/file?token=secret-${++resolved}`,
-      expectedBytes: 10, filename: 'game.exfat', rejectHtml: true })
+    resolve: async (release, { onProgress }) => {
+      onProgress?.({ progress: 0.42, eta: 90 });
+      return { viaTorBox: true, url: `https://test.tb-cdn.pw/file?token=secret-${++resolved}`,
+        expectedBytes: 10, filename: 'game.exfat', rejectHtml: true };
+    }
   });
   const queue = createDownloadQueue({
     fs, sources, formats: DownloadFormats, dataDir: '/test', platform: 'desktop',
@@ -126,4 +129,27 @@ test('an existing browser-waiting job can continue through TorBox without openin
   assert.equal(f.queue.snapshot()[0].state, 'failed');
   assert.equal(f.resolutions(), 1);
   assert.equal(f.transfers.length, 1);
+});
+
+test('TorBox preparation progress is emitted for single and multipart jobs', async () => {
+  for (const multipart of [false, true]) {
+    const f = fixture();
+    const messages = [];
+    const off = f.queue.subscribe((jobs) => messages.push(...jobs.map((job) => job.message || '')));
+    f.enqueue(multipart ? { ...f.release, id: 'set', format: 'archive-set', filename: 'set-game',
+      parts: [{ number: 1, sources: [f.release] }] } : f.release);
+    await settled(f.queue);
+    assert.ok(messages.some((message) => message.includes('TorBox preparing: 42%')));
+    if (multipart) assert.ok(messages.some((message) => /1.*1.*TorBox preparing/.test(message)));
+    off();
+  }
+});
+
+test('queue snapshots do not share mutable artifact display metadata', async () => {
+  const f = fixture();
+  f.enqueue();
+  await settled(f.queue);
+  const [snapshot] = f.queue.snapshot();
+  snapshot.artifact.format = 'zip';
+  assert.equal(f.queue.snapshot()[0].artifact.format, 'binary');
 });

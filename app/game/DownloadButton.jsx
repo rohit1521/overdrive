@@ -13,6 +13,7 @@ import { canDownload, spaceAdvice, spaceNeeded } from './releases.js';
 import { describeSource, isOverdriveCdn, preferredRelease } from './sources.js';
 import { useSourceMetadata } from './useSourceMetadata.js';
 import { useTorBox } from '../state/torbox-session.js';
+import { useSourcePreference } from '../state/source-preference.js';
 import { sourceKind } from '../state/download-sources.js';
 import { useDownload } from './useDownload.js';
 import { useFreeSpace } from './useFreeSpace.js';
@@ -38,6 +39,7 @@ import { DownloadFormats, Text, View, motion } from '@ps5-react/core';
   function DownloadButton({ game, start, onDownloaded, nextDown, onRequestDialog }) {
     const t2 = useT();
     const releases = game.releases || [];
+    const preference = useSourcePreference();
     const [selected, setSelected] = (0, useState)(() => {
       let jobs = [];
       try {
@@ -45,7 +47,7 @@ import { DownloadFormats, Text, View, motion } from '@ps5-react/core';
       } catch {
       }
       const owned2 = jobs.map((job3) => releases.findIndex((release2) => release2.id === (job3.requestedId ?? job3.release.id))).find((index) => index >= 0);
-      return owned2 ?? preferredRelease(releases);
+      return owned2 ?? preferredRelease(releases, preference);
     });
     const [roots] = (0, useState)(() => {
       try {
@@ -55,7 +57,7 @@ import { DownloadFormats, Text, View, motion } from '@ps5-react/core';
       }
     });
     const [storage, setStorage] = (0, useState)(() => {
-      const first = releases[preferredRelease(releases)];
+      const first = releases[selected];
       return Math.max(0, roots.findIndex((root2) => {
         const need2 = spaceNeeded(first, root2);
         return !need2 || freeBytes(root2) >= need2 + MARGIN2;

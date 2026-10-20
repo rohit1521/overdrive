@@ -2,7 +2,7 @@
 // reconstructed from the esbuild bundle in eboot.bin
 
 import { t } from '../i18n/core.js';
-import { sourceFormat } from './source-format.js';
+import { matchesFormat, sourceFormat } from './source-format.js';
 import { sourceKind } from '../state/download-sources.js';
 import { isPs5Package } from '../state/firmware.js';
 import { isPatchOnly } from '../state/release-sets.js';
@@ -91,7 +91,7 @@ import { formatBytes } from '../state/size.js';
   // other mirrors).
   var CONFIRMED = /^(?:vik[i1]ngfile|datanodes|filekeeper(?:\.net)?)$/i;
   var hostRank = ({ provider }) => isOverdriveCdn(provider) ? 0 : provider.toLowerCase() === "archive.org" ? 1 : CONFIRMED.test(provider) ? 2 : provider.toLowerCase() === "mediafire" ? 3 : 4;
-  var ranked = (release, index) => ({ release, index, rank: [
+  var ranked = (release, index, preference) => ({ release, index, rank: [
     isDlc(release) ? 1 : 0,
     release.unavailableReason ? 1 : 0,
     isPatchOnly(release) ? 1 : 0,
@@ -99,6 +99,7 @@ import { formatBytes } from '../state/size.js';
     // A backport is the game fixed for older firmware, or only the files to copy over it (a 40 MB
     // download, issue #47): the full game comes first whatever its host.
     isBackport(release) ? 1 : 0,
+    matchesFormat(release, preference) ? 0 : 1,
     hostRank(release),
     GROUP_RANK[describeSource(release).group],
     HEALTH_RANK[release.health] ?? 1,
@@ -106,8 +107,8 @@ import { formatBytes } from '../state/size.js';
     release.requiresBrowser ? 1 : 0
   ] });
   var compare = (a, b) => a.rank.reduce((order, value, i) => order || value - b.rank[i], 0) || a.index - b.index;
-  function preferredRelease(releases) {
-    return releases.map(ranked).sort(compare)[0]?.index ?? 0;
+  function preferredRelease(releases, preference = "all") {
+    return releases.map((release, index) => ranked(release, index, preference)).sort(compare)[0]?.index ?? 0;
   }
   function sourceSections(releases) {
     const sections = ["direct", "page", "browser", "dlc", "unavailable"].map((group) => ({ group, items: [] }));

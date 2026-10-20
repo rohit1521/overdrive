@@ -78,6 +78,17 @@ test('reuses an existing exact-URL download without creating another account ite
   assert.ok(requests.every(({ args }) => args.method !== 'POST'));
 });
 
+test('reports bounded TorBox preparation progress and ETA without exposing account data', async () => {
+  const { torbox } = client([
+    success([{ id: 7, original_url: release.url }]),
+    success({ id: 7, progress: 0.42, eta: 90, name: 'not for UI', auth_id: 'private' }),
+    success({ ...ready, progress: 1, eta: 0 }), success(cdn)
+  ]);
+  const progress = [];
+  await torbox.resolve(release, { onProgress: (value) => progress.push(value) });
+  assert.deepEqual(progress, [{ progress: 0.42, eta: 90 }, { progress: 1, eta: null }]);
+});
+
 test('returns explicit account and host errors without leaking returned details', async () => {
   for (const reason of ['BAD_TOKEN', 'PLAN_RESTRICTED_FEATURE', 'UNSUPPORTED_SITE', 'ACTIVE_LIMIT', 'LINK_OFFLINE']) {
     const { torbox } = client([{ ok: false, status: 400, json: async () =>

@@ -8,15 +8,16 @@ import { preferredRelease, sourceSections } from './sources.js';
 import { t } from '../i18n/core.js';
 import { useLocale, useT } from '../i18n/index.js';
 import { formatBytes, formatSize } from '../state/size.js';
+import { useSourcePreference } from '../state/source-preference.js';
 import { FocusRing } from '../ui/FocusRing.jsx';
 import { PlatformBadge } from '../ui/PlatformBadge.jsx';
 import { SideSheet } from '../ui/SideSheet.jsx';
 import { colors } from '../ui/colors.js';
 import { Text, View, useIsFocused } from '@ps5-react/core';
 
-  function summary2(edition2) {
+  function summary2(edition2, preference) {
     const releases = edition2.releases || [];
-    const bytes = releases[preferredRelease(releases)]?.sizeBytes;
+    const bytes = releases[preferredRelease(releases, preference)]?.sizeBytes;
     const sources = sourceSections(releases).filter(({ group }) => group !== "dlc" && group !== "unavailable").reduce((sum, { items }) => sum + items.length, 0);
     return [bytes ? formatBytes(bytes) : edition2.sizeGb ? formatSize(edition2.sizeGb) : null, t("versions.sources", { count: sources })];
   }
@@ -24,7 +25,8 @@ import { Text, View, useIsFocused } from '@ps5-react/core';
     const t2 = useT();
     const { locale: locale2 } = useLocale();
     const focused = useIsFocused();
-    const facts = (0, useMemo)(() => summary2(edition2), [edition2, locale2]);
+    const preference = useSourcePreference();
+    const facts = (0, useMemo)(() => summary2(edition2, preference), [edition2, locale2, preference]);
     const detail2 = [...facts, here ? t2("versions.thisPage") : null].filter(Boolean).join(" \xB7 ");
     const name = t2("versions.name", { platform: edition2.platform.toUpperCase() });
     return /* @__PURE__ */ (0, jsxs)(Fragment, { children: [

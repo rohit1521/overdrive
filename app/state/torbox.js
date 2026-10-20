@@ -65,7 +65,7 @@ export function createTorBox({ http, key, wait = delay }) {
       }
       return apiKey;
     },
-    async resolve(release, { signal } = {}) {
+    async resolve(release, { signal, onProgress } = {}) {
       const apiKey = key();
       if (!apiKey) throw new Error(t("torbox.keyRequired"));
       const link = webURL(release.browserUrl || release.url).url;
@@ -91,6 +91,10 @@ export function createTorBox({ http, key, wait = delay }) {
         if (item.error || ["failed", "error"].includes(item.download_state)) {
           throw new Error(t("torbox.failed", { reason: "REMOTE_DOWNLOAD_FAILED" }));
         }
+        onProgress?.({
+          progress: Number.isFinite(item.progress) ? Math.max(0, Math.min(1, item.progress)) : 0,
+          eta: Number.isFinite(item.eta) && item.eta > 0 ? Math.ceil(item.eta) : null
+        });
         if (item.download_finished && item.download_present) {
           const files = item.files;
           if (!Array.isArray(files) || !files.length) throw new Error(t("torbox.failed", { reason: "NO_FILES" }));

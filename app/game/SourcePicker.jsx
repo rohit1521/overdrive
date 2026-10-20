@@ -7,6 +7,8 @@ import { useState } from 'react';
 import { VersionFace } from './VersionSheet.jsx';
 import { useSourceMetadata } from './useSourceMetadata.js';
 import { useTorBox } from '../state/torbox-session.js';
+import { useSourcePreference } from '../state/source-preference.js';
+import { FORMAT_FILTERS, formatLabel, matchesFormat } from './source-format.js';
 import { describeSource, isOverdriveCdn, preferredRelease, sourceSections } from './sources.js';
 import { useT } from '../i18n/index.js';
 import { CdnAura, CdnSpark } from '../ui/CdnAura.jsx';
@@ -113,8 +115,12 @@ import { Text, View, useIsFocused } from '@ps5-react/core';
   }
   function SourcePicker({ title, releases, selected, submit, editions = [], current, onEdition, onClose }) {
     const metadata = useSourceMetadata(releases, releases[selected]?.id);
-    const recommended = preferredRelease(releases);
-    const sections = sourceSections(releases);
+    const preference = useSourcePreference();
+    const [format, setFormat] = useState("all");
+    const recommended = preferredRelease(releases, preference);
+    const sections = sourceSections(releases).map((section) => ({
+      ...section, items: section.items.filter(({ release }) => matchesFormat(release, format, metadata.get(release)))
+    })).filter((section) => section.items.length && section.group !== "unavailable");
     const count = (group) => sections.find((section) => section.group === group)?.items.length ?? 0;
     const [browser, setBrowser] = (0, useState)(() => !count("direct") && !count("page") || describeSource(releases[selected]).group === "browser");
     const [revealed, setRevealed] = (0, useState)(false);
@@ -124,7 +130,14 @@ import { Text, View, useIsFocused } from '@ps5-react/core';
     };
     const t2 = useT();
     return /* @__PURE__ */ (0, jsx)(SideSheet, { title: t2("sources.title"), subtitle: title, onClose, children: /* @__PURE__ */ (0, jsxs)(View, { style: { gap: 42, padding: 9, paddingBottom: 48 }, children: [
+      /* @__PURE__ */ (0, jsxs)(View, { style: { gap: 12 }, children: [
+        /* @__PURE__ */ (0, jsx)(Text, { style: { fontFamily: "Inter-Regular", fontSize: 21, color: colors.muted }, children: t2("sources.formatFilter") }),
+        /* @__PURE__ */ (0, jsx)(View, { style: { flexDirection: "row", flexWrap: "wrap", gap: 9 }, children: FORMAT_FILTERS.map((value) =>
+          /* @__PURE__ */ (0, jsx)(Button2, { size: "sm", variant: value === format ? "primary" : "secondary",
+            label: formatLabel(value), onPress: () => { setFormat(value); setBrowser(true); } }, value)) })
+      ] }),
       /* @__PURE__ */ (0, jsx)(Button2, { label: t2("sources.check.refresh"), onPress: metadata.refresh }),
+      !sections.length ? /* @__PURE__ */ (0, jsx)(Text, { style: { width: 660, fontFamily: "Inter-Regular", fontSize: 21, color: colors.muted, lineHeight: 30 }, children: t2("sources.noFormatMatch") }) : null,
       editions.length > 1 ? /* @__PURE__ */ (0, jsx)(
         Versions,
         {

@@ -9,6 +9,7 @@ import { useT } from '../i18n/index.js';
 import en from '../i18n/locales/en.json';
 import { formatDate3 } from '../state/catalog.js';
 import { formatBytes, formatSize } from '../state/size.js';
+import { useSourcePreference } from '../state/source-preference.js';
 import { PlatformBadge } from '../ui/PlatformBadge.jsx';
 import { Text, View } from '@ps5-react/core';
 
@@ -19,7 +20,8 @@ import { Text, View } from '@ps5-react/core';
   function GameFacts({ game }) {
     const t2 = useT();
     const releases = game.releases || [];
-    const preferred = releases[preferredRelease(releases)];
+    const preference = useSourcePreference();
+    const preferred = releases[preferredRelease(releases, preference)];
     const bytes = preferred?.sizeBytes;
     // The firmware the recommended source needs (issue #13); shown only where its label names one.
     const firmware = preferred ? requiredFirmware(preferred) : null;

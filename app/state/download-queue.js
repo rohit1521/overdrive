@@ -6,7 +6,8 @@
 // has its file link captured from the browser, like Vikingfile's.
 
 import { INCOMPLETE_PART, STALE_PARTIAL, cause } from '../downloads/errors.js';
-import { t } from '../i18n/core.js';
+import { formatTimeLeft } from '../downloads/format.js';
+import { formatPercent2, t } from '../i18n/core.js';
 import { archivePassword } from './archive-password.js';
 import { BrowserRequired, archiveRefusal, cancellation, createSourceResolver, sourceKind, webURL } from './download-sources.js';
 import { LINK_PREFIX, captureAnchor, linkForLog, otherSourceLink, validateCapturedLink } from './browser-links.js';
@@ -329,6 +330,14 @@ import { VIKING_PAGE_PREFIX, VIKING_PREFIX, describeVikingCapture, linkPageMetad
       change();
     }
     const canInstall = () => Boolean(packages) && platform === "ps5";
+    const preparation = (job, part) => ({ progress, eta }) => {
+      job.message = [
+        part ? t("downloads.part", part) : null,
+        t("torbox.preparing", { percent: formatPercent2(Math.round(progress * 100)) }),
+        eta ? formatTimeLeft(eta) : null
+      ].filter(Boolean).join(" \xB7 ");
+      emit2();
+    };
     async function execute(job2) {
       let task;
       let unsubscribe;
@@ -346,6 +355,7 @@ import { VIKING_PAGE_PREFIX, VIKING_PREFIX, describeVikingCapture, linkPageMetad
         const signal = active2.cancel.signal;
         job2.state = "resolving";
         job2.error = "";
+        job2.message = "";
         change();
         if (job2.release.parts) {
           await executeSet(job2, signal);
@@ -362,7 +372,8 @@ import { VIKING_PAGE_PREFIX, VIKING_PREFIX, describeVikingCapture, linkPageMetad
           } else {
             if (!job2.release.url && !job2.release.browserUrl) throw new Error("This release has no download URL.");
             if (job2.torbox && !sources.usesTorBox?.(job2.release)) throw new Error(t("torbox.keyRequired"));
-            const resolved = job2.directURL || sourceKind(job2.release) !== "direct" ? await sources.resolve(job2.release, { signal, directURL: job2.directURL }) : { url: webURL(job2.release.url).url };
+            const resolved = job2.directURL || sourceKind(job2.release) !== "direct" ? await sources.resolve(job2.release, { signal, directURL: job2.directURL, onProgress: preparation(job2) }) : { url: webURL(job2.release.url).url };
+            job2.message = "";
             if (resolved.viaTorBox) job2.torbox = true;
             if (resolved.filename) job2.fileName = resolved.filename;
             job2.options = {
@@ -900,7 +911,9 @@ import { VIKING_PAGE_PREFIX, VIKING_PREFIX, describeVikingCapture, linkPageMetad
           if (part.options?.viaTorBox) delete part.options;
           if (!part.options) {
             if (part.torbox && !sources.usesTorBox?.(source2)) throw new Error(t("torbox.keyRequired"));
-            const resolved = await sources.resolve(source2, { signal, directURL: job2.directURL });
+            const resolved = await sources.resolve(source2, { signal, directURL: job2.directURL,
+              onProgress: preparation(job2, { part: index + 1, parts: job2.parts.length }) });
+            job2.message = t("downloads.part", { part: index + 1, parts: job2.parts.length });
             if (resolved.viaTorBox) part.torbox = true;
             part.options = { ...resolved, expectedBytes: resolved.expectedBytes || source2.sizeBytes || void 0, sha256: source2.sha256 || void 0 };
             delete job2.directURL;
