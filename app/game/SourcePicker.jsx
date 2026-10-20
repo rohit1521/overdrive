@@ -112,7 +112,7 @@ import { Text, View, useIsFocused } from '@ps5-react/core';
     ] });
   }
   function SourcePicker({ title, releases, selected, submit, editions = [], current, onEdition, onClose }) {
-    const metadata = useSourceMetadata(releases);
+    const metadata = useSourceMetadata(releases, releases[selected]?.id);
     const recommended = preferredRelease(releases);
     const sections = sourceSections(releases);
     const count = (group) => sections.find((section) => section.group === group)?.items.length ?? 0;

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync, readdirSync } from 'node:fs';
 import { createSourceMetadata, probeSource } from '../state/source-metadata.js';
+import { cancellation } from '../state/download-sources.js';
 
 const response = (html, status = 200, headers = {}) => ({
   ok: status >= 200 && status < 300, status, headers, text: async () => html
@@ -165,4 +166,87 @@ test('metadata labels exist in every locale', () => {
       assert.ok(messages[`sources.check.${state}`], `${file}: ${state}`);
     }
   }
+});
+
+function controlledMetadata() {
+  const requests = [];
+  const log = [];
+  const http = { request(url, { signal }) {
+    return new Promise((resolve, reject) => {
+      const request = { url, signal, resolve: () => resolve(response(page('game.exfat', '1 GB'))) };
+      requests.push(request);
+      signal.addEventListener('abort', () => reject(new Error('Cancelled')));
+    });
+  } };
+  return { requests, log, store: createSourceMetadata({ http, log: (message) => log.push(message) }) };
+}
+
+test('cancelled watchers release all network slots for the newly opened game', async () => {
+  const { store, requests, log } = controlledMetadata();
+  const old = [source('old1'), source('old2'), source('old3'), source('old4')];
+  const off = store.watch(old, () => {});
+  assert.equal(requests.length, 3);
+  off();
+  const next = [source('new')];
+  const stop = store.watch(next, () => {});
+  await new Promise(setImmediate);
+  assert.equal(requests.length, 4);
+  assert.ok(requests.slice(0, 3).every((request) => request.signal.aborted));
+  assert.ok(requests[3].url.endsWith('/new'));
+  requests[3].resolve();
+  await store.check(next);
+  assert.equal(store.get(old[0]), null);
+  assert.equal(store.get(next[0]).state, 'available');
+  assert.equal(log.length, 0, 'navigation cancellation is not a network failure');
+  stop();
+});
+
+test('shared requests survive until their last interested screen closes', async () => {
+  const { store, requests } = controlledMetadata();
+  const selected = [source('shared')];
+  const first = store.watch(selected, () => {});
+  const second = store.watch(selected, () => {});
+  assert.equal(requests.length, 1);
+  first();
+  assert.equal(requests[0].signal.aborted, false);
+  second();
+  assert.equal(requests[0].signal.aborted, true);
+  await new Promise(setImmediate);
+  assert.equal(store.get(selected[0]), null);
+});
+
+test('a selected source moves ahead of other queued checks without exceeding the cap', async () => {
+  const { store, requests } = controlledMetadata();
+  const releases = Array.from({ length: 8 }, (_, index) => source(String(index)));
+  const off = store.watch(releases, () => {});
+  store.prioritize(releases[7]);
+  requests[0].resolve();
+  await new Promise(setImmediate);
+  assert.equal(requests.length, 4);
+  assert.equal(requests[3].url, releases[7].url);
+  off();
+  await new Promise(setImmediate);
+});
+
+test('notifications are scoped to relevant sources and cached-only checks emit nothing', async () => {
+  const store = createSourceMetadata({ http: { request: async () => response(page('game.rar', '1 GB')) } });
+  const first = [source('one')], second = [source('two')];
+  await store.check(first);
+  let updates = 0;
+  const off = store.watch(first, () => updates++);
+  await store.check(first);
+  assert.equal(updates, 0);
+  await store.check(second);
+  assert.equal(updates, 0);
+  await store.check(first, true);
+  assert.equal(updates, 2, 'only checking and completion change the relevant source');
+  off();
+});
+
+test('probes pass cancellation through to native HTTP', async () => {
+  const cancel = cancellation();
+  await probeSource({ request: async (url, options) => {
+    assert.equal(options.signal, cancel.signal);
+    return response(page('game.zip', '1 GB'));
+  } }, source('file').url, cancel.signal);
 });

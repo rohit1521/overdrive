@@ -38,7 +38,6 @@ import { DownloadFormats, Text, View, motion } from '@ps5-react/core';
   function DownloadButton({ game, start, onDownloaded, nextDown, onRequestDialog }) {
     const t2 = useT();
     const releases = game.releases || [];
-    const metadata = useSourceMetadata(releases);
     const [selected, setSelected] = (0, useState)(() => {
       let jobs = [];
       try {
@@ -63,6 +62,7 @@ import { DownloadFormats, Text, View, motion } from '@ps5-react/core';
       }));
     });
     const release = releases[selected];
+    const metadata = useSourceMetadata(releases, release?.id);
     const torboxEnabled = useTorBox();
     const viaTorBox = torboxEnabled && release && !["direct", "manifest", "unavailable"].includes(sourceKind(release.parts?.[0]?.sources[0] ?? release));
     const source = release ? describeSource(release, metadata.get(release)) : null;
