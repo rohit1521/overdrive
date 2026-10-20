@@ -16,8 +16,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/MyLuxy/overdrive/releases/latest"><img src="https://img.shields.io/github/v/release/MyLuxy/overdrive?style=for-the-badge&label=release&labelColor=0b0b0d&color=2a2a2f" alt="Latest release" width="197"></a>
-  <a href="https://github.com/MyLuxy/overdrive/releases"><img src="https://img.shields.io/github/downloads/MyLuxy/overdrive/total?style=for-the-badge&label=downloads&labelColor=0b0b0d&color=2a2a2f" alt="Downloads" width="183"></a>
+  <a href="https://github.com/rohit1521/overdrive/releases/latest"><img src="https://img.shields.io/github/v/release/rohit1521/overdrive?style=for-the-badge&label=release&labelColor=0b0b0d&color=2a2a2f" alt="Latest release" width="197"></a>
+  <a href="https://github.com/rohit1521/overdrive/releases"><img src="https://img.shields.io/github/downloads/rohit1521/overdrive/total?style=for-the-badge&label=downloads&labelColor=0b0b0d&color=2a2a2f" alt="Downloads" width="183"></a>
   <a href="https://github.com/sponsors/MyLuxy"><img src="https://img.shields.io/badge/sponsor-%E2%9D%A4-db61a2?style=for-the-badge&logo=githubsponsors&logoColor=white&labelColor=0b0b0d" alt="Sponsor MyLuxy on GitHub" width="180"></a>
 </p>
 
@@ -73,7 +73,7 @@ If ShadowMount+ shows its notification when the console starts, you are ready. Y
 **USB drive** and a **PC**.
 
 <p align="center">
-  <a href="https://github.com/MyLuxy/overdrive/releases/latest/download/Overdrive.exfat"><img src="https://img.shields.io/badge/Download-Overdrive.exfat-f2f2f3?style=for-the-badge&labelColor=0b0b0d" alt="Download Overdrive.exfat" width="347"></a>
+  <a href="https://github.com/rohit1521/overdrive/releases/latest/download/Overdrive.exfat"><img src="https://img.shields.io/badge/Download-Overdrive.exfat-f2f2f3?style=for-the-badge&labelColor=0b0b0d" alt="Download Overdrive.exfat" width="347"></a>
 </p>
 
 <table>
@@ -82,7 +82,7 @@ If ShadowMount+ shows its notification when the console starts, you are ready. Y
 <td>
 
 **Download `Overdrive.exfat`** with the button above, or from the
-[latest release](https://github.com/MyLuxy/overdrive/releases/latest). It is the only file you
+[latest release](https://github.com/rohit1521/overdrive/releases/latest). It is the only file you
 need. Leave it as it is: don't unzip it and don't change the `.exfat` at the end of its name.
 
 </td>
@@ -162,6 +162,11 @@ an authenticated TorBox download and PS5 execution still require validation with
 
 ## Updates
 
+This fork defaults to releases from **rohit1521/overdrive**, not the upstream project. The existing
+data-directory `overdrive/update-feed` override still takes precedence. An update is offered only
+for a newer published release with the required asset and digest; draft builds are not offered.
+The current application version is `1.0.8`, with PS5 content version `01.004.000`.
+
 You only install Overdrive by hand once. When a new version comes out, the app tells you by
 itself a few seconds after it opens:
 
@@ -219,7 +224,7 @@ when this happens.
 <br>
 
 Install it by hand: download `Overdrive.exfat` from the
-[latest release](https://github.com/MyLuxy/overdrive/releases/latest), close Overdrive, and copy
+[latest release](https://github.com/rohit1521/overdrive/releases/latest), close Overdrive, and copy
 the new file over the old one in the `homebrew` folder.
 
 </details>
@@ -274,7 +279,7 @@ the PS5 build and the tests (it asks for `sudo` once), on macOS the Homebrew for
 and the framework's npm packages. Read the script first if you'd rather install them yourself.
 
 ```sh
-git clone https://github.com/MyLuxy/overdrive.git
+git clone https://github.com/rohit1521/overdrive.git
 cd overdrive
 npm run setup        # once; asks for sudo on Linux
 npm run dev          # the app in a window on your PC, rebuilt on every save under app/

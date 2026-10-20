@@ -5,11 +5,10 @@ import { useEffect, useState } from 'react';
 import { downloadQueue, storageRoots } from './downloads.js';
 import { locateInstall } from './install-location.js';
 import { createUpdater } from './updater.js';
-import { VERSION } from '../version.js';
+import { UPDATE_FEED, VERSION } from '../version.js';
 import { Archives, Downloads, FileSystem, Http, Platform } from '@ps5-react/core';
 
   var TITLE = "PPSA99058";
-  var FEED = "https://api.github.com/repos/MyLuxy/overdrive/releases/latest";
   var FEED_OVERRIDES = [`${FileSystem.dataDir}/overdrive/update-feed`, `/data/ps5-react/${TITLE}/overdrive/update-feed`];
   function location() {
     if (Platform.OS !== "ps5") return { installDir: `${FileSystem.dataDir}/homebrew/${TITLE}`, workDir: `${FileSystem.dataDir}/overdrive-update` };
@@ -37,7 +36,7 @@ import { Archives, Downloads, FileSystem, Http, Platform } from '@ps5-react/core
         return false;
       }
     });
-    const feed = override ? FileSystem.readFile(override).trim() : FEED;
+    const feed = override ? FileSystem.readFile(override).trim() : UPDATE_FEED;
     return updater = createUpdater({
       http: Http,
       downloads: Downloads,
