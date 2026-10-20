@@ -166,7 +166,7 @@ import { VIKING_PAGE_PREFIX, VIKING_PREFIX, describeVikingCapture, linkPageMetad
         break;
       }
     }
-    const snapshot = () => jobs.map((job2) => ({ ...job2 }));
+    const snapshot = () => jobs.map((job2) => ({ ...job2, artifact: { ...job2.artifact } }));
     const emit2 = () => {
       const busy = captures.size > 0 || jobs.some((job2) => BUSY.includes(job2.state));
       if (busy !== awake2) {

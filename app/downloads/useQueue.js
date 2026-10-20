@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from 'react';
 import { createActivity } from './rates.js';
+import { shapeOf } from './format.js';
 import { downloadQueue } from '../state/downloads.js';
 
   function subscribe2(listener) {
@@ -12,7 +13,6 @@ import { downloadQueue } from '../state/downloads.js';
       return void 0;
     }
   }
-  var shapeOf = (job2) => `${job2.id}|${job2.state}|${job2.phase || ""}|${job2.error}|${job2.message || ""}|${job2.total}`;
   var fractionOf = (progress) => progress?.total ? Math.min(1, progress.written / progress.total) : 0;
   function useJobs() {
     const [state, setState] = (0, useState)({ jobs: [], shape: "", error: "" });

@@ -10,3 +10,14 @@ test('updates default to our fork rather than upstream', () => {
   assert.ok(source.includes(': UPDATE_FEED'));
   assert.ok(!source.includes('repos/MyLuxy/overdrive'));
 });
+import { shapeOf, shownFormat } from '../downloads/format.js';
+test('detected formats invalidate rows but progress counters do not', () => {
+  const job = { id: 'a', state: 'downloading', total: 100, release: { format: 'binary' }, artifact: { format: 'binary' } };
+  const before = shapeOf(job);
+  assert.notEqual(before, shapeOf({ ...job, inspected: 'exfat' }));
+  assert.notEqual(before, shapeOf({ ...job, fileName: 'game.pkg' }));
+  assert.notEqual(before, shapeOf({ ...job, artifact: { format: 'zip' } }));
+  assert.equal(before, shapeOf({ ...job, written: 50, bytesPerSecond: 10, received: 70 }));
+  assert.equal(shownFormat({ ...job, inspected: 'exfat' }), 'exfat');
+  assert.notEqual(before, shapeOf({ ...job, message: 'TorBox preparing: 50%' }));
+});
