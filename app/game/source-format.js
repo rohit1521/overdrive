@@ -41,23 +41,27 @@ export function releaseFormat(release) {
 
 export function sourceFormat(release) {
   const format = releaseFormat(release);
-  return format ? `.${format.toUpperCase()}` : t("sources.format.unknown");
+  return format ? `.${format.toUpperCase()}` : null;
 }
 
-export const FORMAT_PREFERENCES = ["all", "exfat", "images", "packages", "archives"];
-export const FORMAT_FILTERS = [...FORMAT_PREFERENCES, "unknown"];
+export const FORMAT_PREFERENCES = ["all", "pkg", "dump", "exfat", "package", "archives"];
+export const FORMAT_FILTERS = FORMAT_PREFERENCES;
 export function formatLabel(value) {
-  if (value === "exfat") return ".EXFAT";
-  return t(value === "all" ? "sources.formatAll" : value === "unknown" ? "sources.format.unknown" :
-    `sources.kind.${{ images: "image", packages: "package", archives: "archive" }[value]}`);
+  if (value === "exfat") return "exFAT";
+  if (value === "pkg") return "PKG";
+  return t(value === "all" ? "sources.formatAll" : value === "dump" ? "sources.formatDump" :
+    `sources.kind.${{ package: "package", archives: "archive" }[value]}`);
 }
 export function matchesFormat(release, filter, metadata) {
   if (filter === "all") return true;
   const format = metadata?.format || releaseFormat(release);
-  if (filter === "exfat") return format === "exfat";
-  if (filter === "images") return /^(exfat|ffpfsc|ffpfs|ffpkg)$/.test(format || "");
-  if (filter === "packages") return /^(fpkg|pkg)$/.test(format || "");
+  const contents = metadata?.containedFormats || [];
+  const has = (pattern) => pattern.test(format || "") || contents.some((value) => pattern.test(value));
+  if (filter === "exfat") return has(/^exfat$/);
+  if (filter === "pkg") return has(/^(fpkg|pkg)$/);
+  if (filter === "package") return has(/^(ffpfsc|ffpfs|ffpkg)$/);
   if (filter === "archives") return Boolean(release.parts?.length) || /^(zip|rar|7z|tar(?:\.(?:gz|bz2|xz|zst))?|tgz)$/.test(format || "");
-  if (filter === "unknown") return !format && !release.parts?.length;
+  if (filter === "dump") return /^(folder|dump|folder-dump)$/.test(release.format || "") ||
+    Boolean(metadata?.folderDump) || matchesFormat(release, "archives", metadata);
   throw new Error("Unknown source format filter.");
 }

@@ -39,7 +39,17 @@ export async function probeSource(http, url, signal) {
   }
   const afterName = text.slice(text.indexOf(filename) + filename.length, text.indexOf(filename) + filename.length + 1000);
   const sizeLabel = /\b\d+(?:[.,]\d+)?\s*(?:GiB|MiB|KiB|GB|MB|KB|B)\b/i.exec(afterName)?.[0] ?? null;
-  return { state: "available", filename, format: filenameFormat(filename), sizeLabel };
+  const result = { state: "available", filename, format: filenameFormat(filename), sizeLabel };
+  const archive = /<(?:div|section)\b[^>]*\bid=["']archive["'][^>]*>([\s\S]*?)<\/(?:div|section)>/i.exec(html)?.[1];
+  if (archive) {
+    // Only names in the host's archive listing count; the page heading alone says nothing about contents.
+    const names = [...archive.matchAll(/<(?:a|td|li|span)\b[^>]*>([^<>]+)<\/(?:a|td|li|span)>/gi)].map((match) => plain(match[1]));
+    const containedFormats = [...new Set(names.map(filenameFormat).filter(Boolean))];
+    const folderDump = names.some((name) => /(?:^|\/)(?:sce_sys\/param\.json|eboot\.bin)$/i.test(name));
+    if (containedFormats.length) result.containedFormats = containedFormats;
+    if (folderDump) result.folderDump = true;
+  }
+  return result;
 }
 
 export function createSourceMetadata({ http, now = Date.now, log = console.log }) {
@@ -105,7 +115,9 @@ export function createSourceMetadata({ http, now = Date.now, log = console.log }
     const sizes = values.map((value) => /^(\d+(?:\.\d+)?)\s*(GB|MB|KB)$/i.exec(value?.sizeLabel || ""));
     const sizeLabel = sizes.every((size) => size && size[2].toUpperCase() === sizes[0]?.[2].toUpperCase())
       ? `~ ${Number(sizes.reduce((sum, size) => sum + Number(size[1]), 0).toFixed(2))} ${sizes[0][2]}` : null;
-    return { state, format, sizeLabel };
+    const containedFormats = [...new Set(values.flatMap((value) => value?.containedFormats || []))];
+    return { state, format, sizeLabel, ...(containedFormats.length && { containedFormats }),
+      ...(values.some((value) => value?.folderDump) && { folderDump: true }) };
   };
   const subscribe = (listener, releases) => {
     const entry = { listener, urls: releases ? new Set(urlsOf(releases)) : null };

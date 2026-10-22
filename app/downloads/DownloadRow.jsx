@@ -10,7 +10,7 @@ import { PANEL_KEY } from './SummaryPanel.jsx';
 import { STALE_PARTIAL, cause, explainError } from './errors.js';
 import { WAITING, clearAction, shownState, stateLabel } from './labels.js';
 import { shapeOf } from './useQueue.js';
-import { shownFormat } from './format.js';
+import { downloadMeta } from './format.js';
 import { isOverdriveCdn } from '../game/sources.js';
 import { focusEnd, useLocale, useT } from '../i18n/index.js';
 import { BUSY, COMPLETE } from '../state/download-queue.js';
@@ -72,7 +72,7 @@ import { Text, View } from '@ps5-react/core';
     const openGame = () => onOpenGame(job2);
     const main = primary(job2, (name) => run(job2, name), openGame);
     const onFocus = () => onFocusRow(job2);
-    const meta = [shownFormat(job2).toUpperCase(), `${release.provider} ${release.version || ""}`.trim(), job2.root].join(" \xB7 ");
+    const meta = downloadMeta(job2);
     const problem = job2.error && explainError(job2.error, Boolean(release.parts));
     // The files' own title id differs from the game chosen: said before anything else but an error.
     const mismatch = job2.titleMismatch ? t2("downloads.titleMismatch", { found: job2.titleMismatch, expected: job2.titleId }) : "";

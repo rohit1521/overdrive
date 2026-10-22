@@ -46,7 +46,7 @@
 - **1,800+ games** to discover, with **Top rated**, **New releases** and a featured spotlight
 - **Browse the whole library** with filters, sorting, scores and download sizes at a glance
 - **Downloads straight to the console**, to internal storage or any USB drive, with live speed and storage stats
-- **File formats before downloading**: each source shows its extension (such as `.ZIP`, `.EXFAT` or `.PKG`) in the source list and selected-source summary. Sources with no identifiable extension show “Unknown format”; archive labels describe the download, not what is inside it.
+- **File formats before downloading**: each source shows its known extension (such as `.ZIP`, `.EXFAT` or `.PKG`) in the source list and selected-source summary. Unknown formats stay blank. A circular spinner indicates a check in progress; a checkmark **Verified** badge means the host lists the file, not that its bytes or download permissions have been verified. Unverified sources show no status text; missing files retain a warning.
 - Opening a game checks source metadata in the background (up to three requests at once).
   VikingFile, DataNodes and FileKeeper pages expose advertised formats and sizes; direct file links
   use HEAD requests. Results are cached in memory for 10 minutes (one minute for failed or unverified
@@ -55,11 +55,17 @@
   rounded, multipart totals are approximate, and none of this metadata changes download routing
   or byte-verification limits. Live checks still need PS5 hardware validation.
 - Source checks prioritize the selected download and cancel requests when no open screen needs them.
-  Cached-only checks do not trigger extra UI updates. The source picker filters EXFAT, images,
-  packages, archives and unknown formats. Settings can save a preferred format for initial source
+  Cached-only checks do not trigger extra UI updates. The source picker shows **All Formats | PKG |
+  Dump | exFAT | Package | Archive**. PKG includes PKG/FPKG; Package includes FFPFSC/FFPKG/FFPFS;
+  Dump includes folder dumps and archives; Archive includes ZIP/RAR/7z and the supported TAR types.
+  Archives intentionally appear under both Dump and Archive. When a host exposes an archive-member
+  listing, known contained extensions are shown and can also match the PKG/Package/exFAT filters.
+  A generic empty archive widget is not a contents listing; no CAPTCHA bypass, archive download or
+  extraction is done to guess its contents. Settings can save a preferred format for initial source
   recommendations; changing a preference or filter never switches an explicitly selected or queued
   source. Existing full-game and compatibility ranking takes precedence over format preference.
-  Unknown links remain available under All formats.
+  Unknown links remain available under All Formats. Previous Images preferences migrate to Package,
+  and previous Packages preferences migrate to PKG.
 - Files are scanned incrementally outside rendering, yielding every 64 entries or about 8 ms.
   A shared 4,000-entry budget and depth limit bound each scan. Partial sizes are marked `~`,
   unreadable storage is reported, Scan again retries, and file rows are virtualized. Individual native directory reads remain
@@ -142,7 +148,7 @@ instead, again inside a `homebrew` folder: `/data/homebrew/Overdrive.exfat`.
 
 ## Optional TorBox downloads
 
-Settings includes **TorBox API key**. Enter your own API key from your TorBox account settings
+Open **Settings → TorBox Settings → TorBox API Key**. Enter your own API key from your TorBox account settings
 (not a token copied from a CDN URL). The key is visible while editing, including in right-to-left
 locales. Press **R2 / Validate and save** to check it with TorBox's read-only account endpoint.
 The dialog shows validation progress, rejects repeated submissions, and stays open on errors.
@@ -152,17 +158,26 @@ The key is restored on later launches from `overdrive/torbox.json` in the app's 
 directory, separate from the installed image and saved download queue. Writes are atomic and the
 credential file is restricted to its owner (`0600`); it is **not encrypted**. Do not share this file
 or data-directory backups. Settings shows that the key is saved; select it to edit/revalidate, or
-choose **Remove saved TorBox key** to delete it and disable TorBox. Replacing an invalid key or a
+choose **Remove TorBox API Key** in TorBox Settings to delete it and disable TorBox. Replacing an invalid key or a
 failed save leaves the previous key unchanged. Validation checks authentication, not host support
 or your plan's download limits. No validation download is created.
 
-When enabled, host-page sources resolve through TorBox's web-download API instead of opening the
+**Supported Platforms** in TorBox Settings loads the official public host list and shows a
+checkbox for each platform. Uncheck a host to use the original download flow; choices persist
+across launches and apply to all that host's listed aliases. Live host availability is checked as
+well. LinkVault wrappers, unsupported hosts and hosts marked unavailable do not go through TorBox,
+regardless of the provider label. A failed host-list check is reported and uses normal routing
+until a refresh succeeds. The list is cached for ten minutes (one minute after a failed check).
+
+When enabled for a supported host, host-page sources resolve through TorBox's web-download API instead of opening the
 PS5 browser. Direct files and split manifests still use their normal path. TorBox may first need to
 cache the file; Overdrive shows preparation percentage and ETA while Resolving for up to about ten minutes of polling, after which
 you can resume later. Multipart archive volumes are submitted separately. Existing TorBox items
 with the exact same source URL are reused, and remote items are never deleted by Overdrive.
-Unsupported hosts, account/plan limits and ambiguous multi-file results fail explicitly rather than
-falling back to the browser. This sends the selected host link to TorBox and uses your account's
+If TorBox reports a newly unsupported or temporarily disabled host, Overdrive falls back to the
+original source and bypasses TorBox for that host until the host list is refreshed. Account/plan
+errors, transfer errors and ambiguous multi-file results remain explicit failures; they are not
+disguised as host support failures. This sends the selected host link to TorBox and uses your account's
 limits. Support depends on your TorBox plan and the host; it is not guaranteed by the metadata check.
 
 Signed TorBox URLs are generated again on resume and omitted from the saved queue. Keep a valid
@@ -187,7 +202,7 @@ paths have local interruption/retry tests, not a claim of universal PS5 rest-mod
 This fork defaults to releases from **rohit1521/overdrive**, not the upstream project. The existing
 data-directory `overdrive/update-feed` override still takes precedence. An update is offered only
 for a newer published release with the required asset and digest; draft builds are not offered.
-The current application version is `1.0.8`, with PS5 content version `01.004.000`.
+The current application version is `1.0.9`, with PS5 content version `01.005.000`.
 
 You only install Overdrive by hand once. When a new version comes out, the app tells you by
 itself a few seconds after it opens:

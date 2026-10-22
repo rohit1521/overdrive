@@ -9,6 +9,7 @@ import { px } from './scale.js';
 
   var ring = (cx, cy, r) => `M${cx + r} ${cy}a${r} ${r} 0 1 1-${2 * r} 0a${r} ${r} 0 1 1 ${2 * r} 0`;
   var ICONS = {
+    loader: ["M12 2a10 10 0 0 1 10 10"],
     search: [ring(11, 11, 8), "m21 21-4.3-4.3"],
     searchX: [ring(11, 11, 8), "m21 21-4.3-4.3", "m13.5 8.5-5 5", "m8.5 8.5 5 5"],
     chevronDown: ["m6 9 6 6 6-6"],

@@ -22,8 +22,10 @@ import { FileSystem } from '@ps5-react/core';
       FileSystem.mkdir(dir, { recursive: true });
       FileSystem.writeFile(`${dir}/${name}.tmp`, JSON.stringify(list), { sync: SYNCED.has(name) });
       FileSystem.rename(`${dir}/${name}.tmp`, `${dir}/${name}`);
+      return true;
     } catch (error2) {
       console.log(`overdrive: ${what} not saved: ${error2.message}`);
+      return false;
     }
   }
   function savedList(name, what) {

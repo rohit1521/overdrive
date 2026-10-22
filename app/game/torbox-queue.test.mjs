@@ -20,7 +20,7 @@ register(`data:text/javascript,${encodeURIComponent(`
 const { createDownloadQueue } = await import('../state/download-queue.js');
 configure(() => JSON.parse(readFileSync(new URL('../i18n/locales/en.json', import.meta.url), 'utf8')));
 
-function fixture({ failure = "HTTP 500", failures = Infinity, progress = 0, saved } = {}) {
+function fixture({ failure = "HTTP 500", failures = Infinity, progress = 0, saved, supported = true, normalResult } = {}) {
   const files = new Map();
   if (saved) {
     files.set('/test/overdrive/downloads.json', JSON.stringify(saved));
@@ -38,8 +38,12 @@ function fixture({ failure = "HTTP 500", failures = Infinity, progress = 0, save
     diskUsage: () => ({ free: 1e12 }),
     remove: (path) => files.delete(path)
   };
-  const sources = withTorBox({ resolve: async () => { throw new BrowserRequired('https://vikingfile.com/f/example123'); } }, {
+  const sources = withTorBox({ resolve: async () => {
+    if (normalResult) return normalResult;
+    throw new BrowserRequired('https://vikingfile.com/f/example123');
+  } }, {
     enabled: () => enabled,
+    supports: () => supported,
     resolve: async (release, { onProgress }) => {
       onProgress?.({ progress: 0.42, eta: 90 });
       return { viaTorBox: true, url: `https://test.tb-cdn.pw/file?token=secret-${++resolved}`,
@@ -74,6 +78,17 @@ async function settled(queue) {
   }
   assert.fail('Queue did not settle');
 }
+
+test('unsupported hosts use normal queue downloads without a TorBox label or resolution', async () => {
+  const f = fixture({ supported: false, normalResult: { url: 'https://example.com/game.bin', expectedBytes: 10 } });
+  f.succeed();
+  f.enqueue();
+  await settled(f.queue);
+  assert.equal(f.resolutions(), 0);
+  assert.equal(f.transfers[0].url, 'https://example.com/game.bin');
+  assert.equal(f.queue.snapshot()[0].torbox, false);
+  assert.equal(f.queue.snapshot()[0].state, 'file-downloaded');
+});
 
 test('an expired TorBox link refreshes automatically after progress without losing its checkpoint range size', async () => {
   const f = fixture({ failure: "HTTP 403 browser verification required", failures: 1, progress: 4 });

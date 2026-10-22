@@ -52,13 +52,13 @@ test('does not guess from a host, a query, a directory, or the contents of an ar
     { url: 'https://game.zip' },
     { label: 'PS5 FPKG in archive', filename: 'game.bin' },
     { format: 'archive-set' }
-  ]) assert.equal(sourceFormat(release), 'Unknown format');
+  ]) assert.equal(sourceFormat(release), null);
   assert.equal(sourceFormat({ format: 'zip', label: 'EXFAT image inside' }), '.ZIP');
 });
 
 test('reports malformed URL encoding explicitly and keeps the format unknown', (context) => {
   const log = context.mock.method(console, 'log', () => {});
-  assert.equal(sourceFormat({ url: 'https://example.com/Game%ZZ.zip' }), 'Unknown format');
+  assert.equal(sourceFormat({ url: 'https://example.com/Game%ZZ.zip' }), null);
   assert.equal(log.mock.calls.length, 1);
   assert.match(log.mock.calls[0].arguments[0], /invalid URL encoding/);
 });
@@ -84,21 +84,21 @@ test('does not promise a single format for unknown or conflicting multipart sour
     parts: formats.map((format) => ({ sources: [{ format }] }))
   });
   assert.equal(sourceFormat(group('rar', 'rar')), '.RAR');
-  assert.equal(sourceFormat(group('binary', 'binary')), 'Unknown format');
-  assert.equal(sourceFormat(group('rar', 'binary')), 'Unknown format');
-  assert.equal(sourceFormat(group('rar', 'zip')), 'Unknown format');
-  assert.equal(sourceFormat({ parts: [{ sources: [] }] }), 'Unknown format');
-  assert.equal(sourceFormat({ parts: [{ sources: [{ format: 'rar' }, { format: 'zip' }] }] }), 'Unknown format');
+  assert.equal(sourceFormat(group('binary', 'binary')), null);
+  assert.equal(sourceFormat(group('rar', 'binary')), null);
+  assert.equal(sourceFormat(group('rar', 'zip')), null);
+  assert.equal(sourceFormat({ parts: [{ sources: [] }] }), null);
+  assert.equal(sourceFormat({ parts: [{ sources: [{ format: 'rar' }, { format: 'zip' }] }] }), null);
 });
 
-test('all shipped locales provide the unknown-format label', () => {
+test('unknown formats stay blank in every locale while known extensions remain visible', () => {
   for (const file of readdirSync(localesDir).filter((file) => file.endsWith('.json'))) {
     const code = file.slice(0, -5);
     const label = messages(code)['sources.format.unknown'];
     assert.equal(typeof label, 'string', code);
     assert.ok(label.length > 0, code);
     setLocale(code);
-    assert.equal(sourceFormat({ format: 'binary' }), label, code);
+    assert.equal(sourceFormat({ format: 'binary' }), null, code);
     assert.equal(sourceFormat({ format: 'exfat' }), '.EXFAT', code);
   }
   setLocale('en');

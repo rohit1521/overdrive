@@ -369,6 +369,8 @@ import { VIKING_PAGE_PREFIX, VIKING_PREFIX, describeVikingCapture, linkPageMetad
         job2.error = "";
         job2.message = "";
         change();
+        await sources.prepare?.({ signal });
+        if (job2.state === "pausing" || signal.aborted) return;
         if (job2.release.parts) {
           await executeSet(job2, signal);
           return;
@@ -383,10 +385,10 @@ import { VIKING_PAGE_PREFIX, VIKING_PREFIX, describeVikingCapture, linkPageMetad
             job2.options = formats.manifest(await response.json());
           } else {
             if (!job2.release.url && !job2.release.browserUrl) throw new Error("This release has no download URL.");
-            if (job2.torbox && !sources.usesTorBox?.(job2.release)) throw new Error(t("torbox.keyRequired"));
+            if (job2.torbox && !(sources.hasTorBoxKey?.() ?? sources.usesTorBox?.(job2.release))) throw new Error(t("torbox.keyRequired"));
             const resolved = job2.directURL || sourceKind(job2.release) !== "direct" ? await sources.resolve(job2.release, { signal, directURL: job2.directURL, onProgress: preparation(job2) }) : { url: webURL(job2.release.url).url };
             job2.message = "";
-            if (resolved.viaTorBox) job2.torbox = true;
+            job2.torbox = Boolean(resolved.viaTorBox);
             if (resolved.filename) job2.fileName = resolved.filename;
             job2.options = {
               ...resolved,
@@ -925,11 +927,11 @@ import { VIKING_PAGE_PREFIX, VIKING_PREFIX, describeVikingCapture, linkPageMetad
           job2.currentSource = source2;
           if (part.options?.viaTorBox) delete part.options;
           if (!part.options) {
-            if (part.torbox && !sources.usesTorBox?.(source2)) throw new Error(t("torbox.keyRequired"));
+            if (part.torbox && !(sources.hasTorBoxKey?.() ?? sources.usesTorBox?.(source2))) throw new Error(t("torbox.keyRequired"));
             const resolved = await sources.resolve(source2, { signal, directURL: job2.directURL,
               onProgress: preparation(job2, { part: index + 1, parts: job2.parts.length }) });
             job2.message = t("downloads.part", { part: index + 1, parts: job2.parts.length });
-            if (resolved.viaTorBox) part.torbox = true;
+            part.torbox = Boolean(resolved.viaTorBox);
             part.options = { ...resolved, expectedBytes: resolved.expectedBytes || source2.sizeBytes || void 0, sha256: source2.sha256 || void 0 };
             delete job2.directURL;
             change();

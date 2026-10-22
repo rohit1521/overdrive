@@ -4,7 +4,7 @@ import { register } from 'node:module';
 import { readFileSync, readdirSync } from 'node:fs';
 import { configure } from '../i18n/core.js';
 import { shapeOf, shownFormat } from '../downloads/format.js';
-import { matchesFormat, releaseFormat } from './source-format.js';
+import { FORMAT_FILTERS, formatLabel, matchesFormat, releaseFormat } from './source-format.js';
 import { scanDrive, totals } from '../files/scan.js';
 import { cancellation } from '../state/download-sources.js';
 import { UPDATE_FEED } from '../version.js';
@@ -29,17 +29,28 @@ test('detected formats invalidate rows but progress counters do not', () => {
   assert.notEqual(before, shapeOf({ ...job, message: 'TorBox preparing: 50%' }));
 });
 
-test('format filters distinguish images, packages, archives and unknown records', () => {
+test('format filters distinguish PKG, Dump, exFAT, Package and Archive with archive overlap', () => {
+  assert.deepEqual(FORMAT_FILTERS.map(formatLabel), ['All Formats', 'PKG', 'Dump', 'exFAT', 'Package', 'Archive']);
   assert.ok(matchesFormat({ format: 'exfat' }, 'exfat'));
-  assert.ok(matchesFormat({ format: 'ffpkg' }, 'images'));
-  assert.ok(!matchesFormat({ format: 'fpkg' }, 'images'));
-  assert.ok(matchesFormat({ format: 'fpkg' }, 'packages'));
+  assert.ok(matchesFormat({ format: 'ffpkg' }, 'package'));
+  assert.ok(matchesFormat({ format: 'ffpfsc' }, 'package'));
+  assert.ok(!matchesFormat({ format: 'fpkg' }, 'package'));
+  assert.ok(matchesFormat({ format: 'fpkg' }, 'pkg'));
+  assert.ok(matchesFormat({ format: 'pkg' }, 'pkg'));
   assert.ok(matchesFormat({ filename: 'game.tar.gz' }, 'archives'));
+  for (const format of ['zip', 'rar', '7z']) {
+    assert.ok(matchesFormat({ format }, 'dump'));
+    assert.ok(matchesFormat({ format }, 'archives'));
+  }
+  assert.ok(matchesFormat({ format: 'folder-dump' }, 'dump'));
   assert.ok(matchesFormat({ format: 'binary' }, 'exfat', { format: 'exfat' }));
   const set = { parts: [{ sources: [{ format: 'binary' }] }] };
   assert.ok(matchesFormat(set, 'archives'));
-  assert.ok(!matchesFormat(set, 'unknown'));
-  assert.ok(matchesFormat({ format: 'binary' }, 'unknown'));
+  assert.ok(matchesFormat(set, 'dump'));
+  assert.ok(matchesFormat({ format: 'binary' }, 'all'));
+  assert.ok(!matchesFormat({ format: 'binary' }, 'package'));
+  assert.ok(matchesFormat({ format: 'zip' }, 'pkg', { containedFormats: ['pkg'] }));
+  assert.ok(matchesFormat({ format: 'rar' }, 'package', { containedFormats: ['ffpfsc'] }));
   assert.equal(releaseFormat({ format: 'archive-set' }), null);
 });
 

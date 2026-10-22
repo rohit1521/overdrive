@@ -59,10 +59,12 @@ import { formatBytes } from '../state/size.js';
   function describeSource(release, metadata = null) {
     const parts = release.parts?.length;
     const format = metadata?.format ? `.${metadata.format.toUpperCase()}` : sourceFormat(release);
-    const availability = metadata ? t(`sources.check.${metadata.state}`) : null;
+    const availability = metadata?.state === "missing" ? t("sources.check.missing") : null;
     const detail2 = [
       format,
       availability,
+      metadata?.containedFormats?.length ? t("sources.contains", { formats: metadata.containedFormats.map((value) => `.${value.toUpperCase()}`).join(", ") }) : null,
+      metadata?.folderDump ? t("sources.formatDump") : null,
       edition(release),
       release.version ? `v${release.version.replace(/^v/i, "")}` : null,
       isPatchOnly(release) ? t("sources.kind.patch") : KIND[release.format] && t(KIND[release.format]),
@@ -74,6 +76,7 @@ import { formatBytes } from '../state/size.js';
       name: release.provider.replace(/^www\./, ""),
       format,
       availability,
+      verification: metadata?.state,
       detail: speed ? [detail2, t(speed)].filter(Boolean).join(" \xB7 ") : detail2,
       size: metadata?.sizeLabel || (metadata?.sizeBytes ? formatBytes(metadata.sizeBytes) : release.sizeBytes ? formatBytes(release.sizeBytes) : null),
       group: release.unavailableReason ? "unavailable" : reach,

@@ -40,6 +40,20 @@ test('reads DataNodes generic filename elements and FileKeeper headings', async 
   }
 });
 
+test('reads advertised archive members without confusing the archive itself with its contents', async () => {
+  const html = page('game.rar', '9 GB') + '<div id="archive"><h2>Download files directly from archive</h2>' +
+    '<a href="/member">PPSA00001.ffpfsc</a><span>sce_sys/param.json</span><span>eboot.bin</span></div>';
+  const result = await probeSource({ request: async () => response(html) }, 'https://vikingfile.com/f/file');
+  assert.equal(result.format, 'rar');
+  assert.deepEqual(result.containedFormats, ['ffpfsc']);
+  assert.equal(result.folderDump, true);
+  const empty = await probeSource({ request: async () => response(page('game.zip', '1 GB') +
+    '<div id="archive" class="hidden"><h2>Download files directly from archive</h2></div>') }, 'https://vikingfile.com/f/file');
+  assert.equal(empty.format, 'zip');
+  assert.equal(empty.containedFormats, undefined);
+  assert.equal(empty.folderDump, undefined);
+});
+
 test('decodes filename entities and ignores script contents', async () => {
   const html = '<script>game.zip 900 GB</script><h2>Beast &amp; Wolf&#46;rar</h2><p>2.5 GB</p>';
   const result = await probeSource({ request: async () => response(html) }, source('file').url);

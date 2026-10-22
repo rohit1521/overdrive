@@ -8,8 +8,8 @@ import { createSourceResolver } from './download-sources.js';
 import { createMockDownloadQueue } from './mock-download-queue.js';
 import { consoleRoots } from './roots.js';
 import { createShadowMountProbe } from './shadowmount.js';
-import { createTorBox, withTorBox } from './torbox.js';
-import { torboxKey } from './torbox-session.js';
+import { withTorBox } from './torbox.js';
+import { torboxClient } from './torbox-session.js';
 import { Archives, BrowserCapture, DownloadFormats, Downloads, FileSystem, Http, Linking, Notifications, Packages, Platform, Power } from '@ps5-react/core';
 
   var instance;
@@ -27,7 +27,7 @@ import { Archives, BrowserCapture, DownloadFormats, Downloads, FileSystem, Http,
     notifications: Notifications,
     power: Power,
     linking: Linking,
-    sources: withTorBox(createSourceResolver({ http: Http }), createTorBox({ http: Http, key: torboxKey })),
+    sources: withTorBox(createSourceResolver({ http: Http }), torboxClient),
     packages: Packages,
     browserCapture: BrowserCapture,
     releasesOf: (id) => getGame(id)?.releases || []

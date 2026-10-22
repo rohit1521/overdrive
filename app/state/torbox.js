@@ -25,7 +25,7 @@ const delay = (signal) => new Promise((resolve, reject) => {
   if (signal?.aborted) cancel();
 });
 
-export function createTorBox({ http, key, wait = delay }) {
+export function createTorBox({ http, key, hosts, wait = delay }) {
   async function request(path, apiKey, signal, options = {}) {
     abort(signal);
     let response;
@@ -50,13 +50,18 @@ export function createTorBox({ http, key, wait = delay }) {
     abort(signal);
     if (!response.ok || result?.success !== true) {
       const reason = /^[A-Z0-9_]{1,80}$/.test(result?.error || "") ? result.error : `HTTP_${response.status}`;
-      throw new Error(t("torbox.failed", { reason }));
+      const failure = new Error(t("torbox.failed", { reason }));
+      failure.code = reason;
+      throw failure;
     }
     return result.data;
   }
 
   return {
     enabled: () => Boolean(key()),
+    prepare: () => hosts?.load(),
+    supports: (release) => hosts ? hosts.supports(release) : true,
+    rejectHost: (release) => hosts?.reject(release),
     async validate(value, { signal } = {}) {
       const apiKey = normalizeTorBoxKey(value);
       const user = await request("user/me?settings=false", apiKey, signal);
@@ -123,11 +128,24 @@ export function createTorBox({ http, key, wait = delay }) {
 }
 
 export function withTorBox(sources, torbox) {
-  const usesTorBox = (release) => torbox.enabled() && !["direct", "manifest", "unavailable"].includes(sourceKind(release));
+  const usesTorBox = (release) => torbox.enabled() && torbox.supports?.(release) !== false &&
+    !["direct", "manifest", "unavailable"].includes(sourceKind(release));
   return {
     usesTorBox,
+    hasTorBoxKey: torbox.enabled,
+    prepare: (options) => torbox.enabled() ? torbox.prepare?.(options) : void 0,
     async resolve(release, options = {}) {
-      if (!options.directURL && usesTorBox(release)) return torbox.resolve(release, options);
+      if (!options.directURL && torbox.enabled()) {
+        await torbox.prepare?.(options);
+        abort(options.signal);
+        if (usesTorBox(release)) {
+          try { return await torbox.resolve(release, options); } catch (failure) {
+            if (!["UNSUPPORTED_SITE", "TEMPORARILY_DISABLED"].includes(failure.code)) throw failure;
+            torbox.rejectHost?.(release);
+            console.log("[torbox] host unsupported or unavailable; using original source");
+          }
+        }
+      }
       return sources.resolve(release, options);
     }
   };

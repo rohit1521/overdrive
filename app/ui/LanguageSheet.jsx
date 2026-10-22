@@ -5,7 +5,7 @@
 import '../assets/Inter-Regular.ttf';
 import { Fragment, jsx, jsxs } from 'react/jsx-runtime';
 import { useState } from 'react';
-import { URLDialog } from '../downloads/URLDialog.jsx';
+import { TorBoxSettings } from './TorBoxSettings.jsx';
 import { formatPercent2 } from '../i18n/core.js';
 import { chooseLanguage, languageChoice, systemLocale, useT } from '../i18n/index.js';
 import { LOCALES } from '../i18n/locales.js';
@@ -16,7 +16,7 @@ import { colors } from './colors.js';
 import { LEVELS, setVibrationLevel, useVibrationLevel } from './haptics.js';
 import { LIMITS, setSpeedLimit, useSpeedLimit } from '../state/speed-limit.js';
 import { setDeletePackages, useDeletePackages } from '../state/package-cleanup.js';
-import { clearTorBoxKey, setTorBoxKey, torboxError, torboxKey, useTorBox } from '../state/torbox-session.js';
+import { useTorBox } from '../state/torbox-session.js';
 import { setSourcePreference, useSourcePreference } from '../state/source-preference.js';
 import { FORMAT_PREFERENCES, formatLabel } from '../game/source-format.js';
 import { Text, View, useIsFocused } from '@ps5-react/core';
@@ -119,17 +119,12 @@ import { Text, View, useIsFocused } from '@ps5-react/core';
     const torbox = useTorBox();
     const preference = useSourcePreference();
     const [editingTorBox, setEditingTorBox] = useState(false);
-    const [torboxFailure, setTorboxFailure] = useState(torboxError);
     const choice2 = languageChoice();
     const pick2 = (code) => {
       chooseLanguage(code);
       onClose();
     };
-    if (editingTorBox) return /* @__PURE__ */ (0, jsx)(URLDialog, {
-      title: t2("torbox.title"), detail: t2("torbox.detail"), initial: torboxKey(),
-      confirmLabel: t2("torbox.save"), pendingLabel: t2("torbox.checking"),
-      submit: setTorBoxKey, onClose: () => { setEditingTorBox(false); setTorboxFailure(torboxError()); }
-    });
+    if (editingTorBox) return /* @__PURE__ */ (0, jsx)(TorBoxSettings, { onClose: () => setEditingTorBox(false) });
     // The speed limit and vibration stay open on press, so the change shows (or is felt) at once; a
     // language choice still closes the sheet as before. Focus opens on the chosen speed, at the top.
     return /* @__PURE__ */ (0, jsx)(SideSheet, { title: t2("settings.title"), onClose, children: /* @__PURE__ */ (0, jsxs)(View, { style: { gap: 6, padding: 9, paddingBottom: 48 }, children: [
@@ -141,10 +136,6 @@ import { Text, View, useIsFocused } from '@ps5-react/core';
       /* @__PURE__ */ (0, jsx)(Row4, { code: "torbox", name: t2("torbox.title"),
         detail: t2(torbox ? "torbox.enabled" : "torbox.detail"), checked: torbox,
         onPress: () => setEditingTorBox(true) }),
-      torbox ? /* @__PURE__ */ (0, jsx)(Row4, { code: "torbox-remove", name: t2("torbox.remove"), onPress: () => {
-        try { clearTorBoxKey(); setTorboxFailure(""); } catch (failure) { setTorboxFailure(failure.message); }
-      } }) : null,
-      torboxFailure ? /* @__PURE__ */ (0, jsx)(Text, { style: { width: 660, fontFamily: "Inter-Regular", fontSize: 21, color: colors.warn, lineHeight: 30 }, children: torboxFailure }) : null,
       /* @__PURE__ */ (0, jsx)(SectionLabel, { title: t2("settings.controller") }),
       /* @__PURE__ */ (0, jsx)(VibrationLevel, {}),
       /* @__PURE__ */ (0, jsx)(SectionLabel, { icon: "languages", title: t2("language.title"), detail: t2("language.subtitle") }),

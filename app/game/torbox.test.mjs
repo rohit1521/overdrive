@@ -204,10 +204,13 @@ test('every locale defines all TorBox UI and error strings', () => {
   const directory = new URL('../i18n/locales/', import.meta.url);
   for (const file of readdirSync(directory).filter((file) => file.endsWith('.json'))) {
     const locale = JSON.parse(readFileSync(new URL(file, directory), 'utf8'));
-    for (const name of ['title', 'detail', 'enabled', 'keyRequired', 'cancelled', 'failed',
-      'save', 'checking', 'remove', 'saveFailed', 'loadFailed']) {
+    for (const name of ['title', 'apiKey', 'detail', 'enabled', 'keyRequired', 'cancelled', 'failed',
+      'save', 'checking', 'remove', 'saveFailed', 'loadFailed', 'platforms', 'platformsDetail',
+      'refreshHosts', 'noHosts', 'hostLoadFailed', 'hostSaveFailed', 'hostUnavailable']) {
       assert.ok(locale[`torbox.${name}`], `${file}: ${name}`);
     }
     assert.ok(locale['torbox.failed'].includes('{reason}'), file);
+    for (const name of ['sources.formatDump', 'sources.verified', 'sources.contains']) assert.ok(locale[name], `${file}: ${name}`);
+    assert.ok(locale['sources.contains'].includes('{formats}'), file);
   }
 });

@@ -7,7 +7,8 @@ import { Fragment, jsx, jsxs } from 'react/jsx-runtime';
 import { useEffect, useState } from 'react';
 import { describeSource, isDlc, requiredFirmware } from './sources.js';
 import { useSourceMetadata } from './useSourceMetadata.js';
-import { useTorBox } from '../state/torbox-session.js';
+import { useTorBoxRouting } from '../state/torbox-session.js';
+import { SourceVerification } from '../ui/SourceVerification.jsx';
 import { useT } from '../i18n/index.js';
 import { sourceKind } from '../state/download-sources.js';
 import { isPs5Package } from '../state/firmware.js';
@@ -76,7 +77,8 @@ import { FocusScope, Text, View, useIsFocused } from '@ps5-react/core';
   }
   function DownloadTipsDialog({ game, release, submit, changeSource, onClose }) {
     const metadata = useSourceMetadata([release]);
-    const torbox = useTorBox();
+    const torboxFor = useTorBoxRouting();
+    const torbox = torboxFor(release);
     const t2 = useT();
     const [open, setOpen] = (0, useState)(false);
     const { focusLater } = useNavActions();
@@ -114,7 +116,8 @@ import { FocusScope, Text, View, useIsFocused } from '@ps5-react/core';
             /* @__PURE__ */ (0, jsx)(Cover, { game, label: false, style: { width: 78, height: 78, borderRadius: 10, overflow: "hidden" } }),
             /* @__PURE__ */ (0, jsxs)(View, { style: { flex: 1, gap: 4 }, children: [
               /* @__PURE__ */ (0, jsx)(Text, { style: { fontFamily: "Inter-Regular", fontSize: 26, fontWeight: 600, color: colors.fg, numberOfLines: 1, ellipsizeMode: "tail" }, children: game.title }),
-              /* @__PURE__ */ (0, jsx)(Text, { style: { fontFamily: "Inter-Regular", fontSize: 21, color: colors.muted, numberOfLines: 1, ellipsizeMode: "tail" }, children: [detail2, name, torbox && describeSource(release).group !== "direct" ? "TorBox" : null].filter(Boolean).join(" \xB7 ") })
+              /* @__PURE__ */ (0, jsx)(Text, { style: { fontFamily: "Inter-Regular", fontSize: 21, color: colors.muted, numberOfLines: 1, ellipsizeMode: "tail" }, children: [detail2, name, torbox ? "TorBox" : null].filter(Boolean).join(" \xB7 ") }),
+              /* @__PURE__ */ (0, jsx)(SourceVerification, { state: metadata.get(release)?.state })
             ] }),
             size ? /* @__PURE__ */ (0, jsx)(Text, { style: { fontFamily: "Inter-Regular", fontSize: 22, color: colors.fg }, children: size }) : null
           ] })

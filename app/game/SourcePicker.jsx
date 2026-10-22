@@ -6,13 +6,14 @@ import { Fragment, jsx, jsxs } from 'react/jsx-runtime';
 import { useState } from 'react';
 import { VersionFace } from './VersionSheet.jsx';
 import { useSourceMetadata } from './useSourceMetadata.js';
-import { useTorBox } from '../state/torbox-session.js';
+import { useTorBoxRouting } from '../state/torbox-session.js';
 import { useSourcePreference } from '../state/source-preference.js';
 import { FORMAT_FILTERS, formatLabel, matchesFormat } from './source-format.js';
 import { describeSource, isOverdriveCdn, preferredRelease, sourceSections } from './sources.js';
 import { useT } from '../i18n/index.js';
 import { CdnAura, CdnSpark } from '../ui/CdnAura.jsx';
 import { Button2 } from '../ui/Button.jsx';
+import { SourceVerification } from '../ui/SourceVerification.jsx';
 import { FocusRing } from '../ui/FocusRing.jsx';
 import { Icon } from '../ui/Icon.jsx';
 import { SideSheet } from '../ui/SideSheet.jsx';
@@ -35,7 +36,7 @@ import { Text, View, useIsFocused } from '@ps5-react/core';
       /* @__PURE__ */ (0, jsx)(Text, { style: { width: 423, fontFamily: "Inter-Regular", fontSize: 20, color: tint, numberOfLines: 1, ellipsizeMode: "tail", lineHeight: 28 }, children: status.text })
     ] });
   }
-  function RowFace({ icon, name, detail: detail2, size, recommended, current, cdn, status }) {
+  function RowFace({ icon, name, detail: detail2, size, recommended, current, cdn, status, verification }) {
     const t2 = useT();
     const focused = useIsFocused();
     const ink2 = focused ? colors.fg : colors.muted;
@@ -44,9 +45,10 @@ import { Text, View, useIsFocused } from '@ps5-react/core';
       /* @__PURE__ */ (0, jsx)(FocusRing, {}),
       cdn ? /* @__PURE__ */ (0, jsx)(CdnSpark, { size: 18 }) : /* @__PURE__ */ (0, jsx)(Icon, { name: icon, size: 18, color: ink2 }),
       /* @__PURE__ */ (0, jsxs)(View, { style: { flex: 1, gap: 3 }, children: [
-        /* @__PURE__ */ (0, jsxs)(View, { style: { flexDirection: "row", alignItems: "center", gap: 12 }, children: [
+        /* @__PURE__ */ (0, jsxs)(View, { style: { width: 450, flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 12 }, children: [
           /* @__PURE__ */ (0, jsx)(Text, { style: { fontFamily: "Inter-Regular", fontSize: 23, fontWeight: 600, color: "#f2f2f3" }, children: name }),
-          recommended ? /* @__PURE__ */ (0, jsx)(View, { style: { borderRadius: 3, backgroundColor: "#f2f2f3", paddingHorizontal: 9, paddingVertical: 2 }, children: /* @__PURE__ */ (0, jsx)(Text, { style: { fontFamily: "Inter-Regular", fontSize: 18, fontWeight: 600, color: "#000000", lineHeight: 24 }, children: t2("sources.recommended") }) }) : null
+          recommended ? /* @__PURE__ */ (0, jsx)(View, { style: { borderRadius: 30, backgroundColor: "#f2f2f3", paddingHorizontal: 9, paddingVertical: 2 }, children: /* @__PURE__ */ (0, jsx)(Text, { style: { fontFamily: "Inter-Regular", fontSize: 18, fontWeight: 600, color: "#000000", lineHeight: 24 }, children: t2("sources.recommended") }) }) : null,
+          /* @__PURE__ */ (0, jsx)(SourceVerification, { state: verification })
         ] }),
         /* @__PURE__ */ (0, jsx)(Text, { style: [{ width: 450, fontFamily: "Inter-Regular", fontSize: 21, numberOfLines: 2, ellipsizeMode: "tail", lineHeight: 30 }, { color: ink2 }], children: detail2 || t2("sources.noDetails") }),
         status ? /* @__PURE__ */ (0, jsx)(StatusLine, { status }) : null
@@ -57,7 +59,7 @@ import { Text, View, useIsFocused } from '@ps5-react/core';
   }
   function Section2({ group, items, selected, recommended, revealed, onPick, metadata }) {
     const t2 = useT();
-    const torbox = useTorBox();
+    const torboxFor = useTorBoxRouting();
     const { title, icon, note } = SECTION[group];
     return /* @__PURE__ */ (0, jsxs)(View, { style: { gap: 6 }, children: [
       /* @__PURE__ */ (0, jsxs)(View, { style: { marginBottom: 6, gap: 3, paddingHorizontal: 18 }, children: [
@@ -65,15 +67,16 @@ import { Text, View, useIsFocused } from '@ps5-react/core';
         note ? /* @__PURE__ */ (0, jsx)(Text, { style: { width: 660, fontFamily: "Inter-Regular", fontSize: 21, color: "#8a8a94", numberOfLines: 2, ellipsizeMode: "tail", lineHeight: 30 }, children: t2(note) }) : null
       ] }),
       items.map(({ release, index }, row) => {
-        const { name, detail: detail2, size, status } = describeSource(release, metadata.get(release));
+        const { name, detail: detail2, size, status, verification } = describeSource(release, metadata.get(release));
         return /* @__PURE__ */ (0, jsx)(View, { autoFocus: index === selected || revealed && row === 0, onPress: () => onPick(index), style: (_state) => [{ position: "relative", minHeight: 84, flexDirection: "row", alignItems: "center", gap: 18, borderRadius: 12, paddingHorizontal: 18, paddingVertical: 12 }, _state.focused ? { backgroundColor: "#212125" } : null], children: /* @__PURE__ */ (0, jsx)(
           RowFace,
           {
             icon,
-            name: torbox && describeSource(release).group !== "direct" ? `${name} / TorBox` : name,
+            name: torboxFor(release) ? `${name} / TorBox` : name,
             detail: detail2,
             size,
             status,
+            verification,
             cdn: isOverdriveCdn(release.provider),
             recommended: index === recommended && group !== "browser",
             current: index === selected
